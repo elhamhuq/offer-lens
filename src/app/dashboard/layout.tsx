@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useAuth } from "@/hooks/useAuth"
+import { useStore } from "@/store/useStore"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
@@ -11,7 +10,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated } = useStore()
   const router = useRouter()
 
   useEffect(() => {

@@ -13,6 +13,7 @@
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf .next out dist",
+    "check-env": "node -e \"console.log('Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)\"",
     "postinstall": "echo '✅ Dependencies installed successfully!'"
   },
   "dependencies": {
