@@ -5,15 +5,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import FileUpload from "@/components/FileUpload"
+import FileUploadRAG from "@/components/FileUploadRAG"
 import InvestmentForm from "@/components/InvestmentForm"
 import FinancialChart from "@/components/FinancialChart"
 import ScenarioComparison from "@/components/ScenarioComparison"
 import AIExplanation from "@/components/AIExplanation"
 import { useStore } from "@/store/useStore"
-import { Calculator, TrendingUp, Brain, BarChart3, Upload, Target } from "lucide-react"
+import { Calculator, TrendingUp, Brain, BarChart3, Upload, Target, Sparkles } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState("upload")
+  const [activeTab, setActiveTab] = useState("ai-analysis")
+  const router = useRouter()
   const { scenarios, addScenario, currentScenario, setCurrentScenario } = useStore()
 
   const handleFileProcessed = (data: any) => {
@@ -40,6 +43,7 @@ export default function DashboardPage() {
   }
 
   const tabs = [
+    { id: "ai-analysis", label: "AI Document Analysis", icon: Sparkles },
     { id: "upload", label: "Upload Offers", icon: Upload },
     { id: "invest", label: "Investment Strategy", icon: Target },
     { id: "analyze", label: "Financial Analysis", icon: BarChart3 },
@@ -102,6 +106,50 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-8">
+          {activeTab === "ai-analysis" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">AI-Powered Document Analysis</h2>
+                  <p className="text-muted-foreground">
+                    Upload job offers for instant AI analysis with Google Gemini
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => router.push('/dashboard/analysis/new')}
+                  className="gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  New Analysis
+                </Button>
+              </div>
+              
+              <FileUploadRAG 
+                onAnalysisComplete={(analysisId, data) => {
+                  router.push(`/dashboard/analysis/${analysisId}`)
+                }}
+              />
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Analyses</CardTitle>
+                  <CardDescription>
+                    View your recent job offer analyses
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => router.push('/dashboard/analysis/history')}
+                  >
+                    View Analysis History →
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
           {activeTab === "upload" && (
             <div className="grid lg:grid-cols-2 gap-8">
               <FileUpload onFileProcessed={handleFileProcessed} />

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Upload, File, X, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 import { useDropzone } from "react-dropzone"
+import { supabase } from "@/lib/supabase"
+import { useStore } from "@/store/useStore"
 
 interface UploadedFile {
   id: string
@@ -15,11 +17,13 @@ interface UploadedFile {
   status: "uploading" | "processing" | "completed" | "error"
   extractedData?: {
     company: string
-    title: string
-    salary: number
+    jobTitle: string
+    baseSalary: number
     location: string
     benefits: string[]
   }
+  documentAnalysisId?: string
+  error?: string
 }
 
 interface FileUploadProps {
@@ -35,9 +39,131 @@ export default function FileUpload({
 }: FileUploadProps) {
   const [files, setFiles] = useState<UploadedFile[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const { user, addScenario } = useStore()
+
+  const processPDFFile = async (file: File, fileId: string) => {
+    try {
+      // Update status to processing
+      setFiles((prev) => prev.map((f) => (f.id === fileId ? { ...f, status: "processing" } : f)))
+
+      // Create FormData for the API call
+      const formData = new FormData()
+      formData.append('file', file)
+
+      // Make sure we have a valid session with cookies
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      console.log('FileUpload - Session check:', session ? `User ${session.user.id}` : 'No session')
+
+      if (!session) {
+        // Check if user is logged in via store
+        if (!user) {
+          throw new Error('No active session found. Please log in again.')
+        }
+        console.log('Using user from store:', user.id)
+      } else {
+        console.log('Using session for user:', session.user.id)
+      }
+
+      // Call our PDF processing API (cookies will be sent automatically)
+      const response = await fetch('/api/analyze-pdf', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include', // Important! This ensures cookies are sent
+      })
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.error || 'Processing failed')
+      }
+
+      // Extract the data from the response
+      const extractedData = result.extractedData
+      const documentAnalysisId = result.documentAnalysisId
+
+      // Update file status to completed
+      setFiles((prev) =>
+        prev.map((f) => 
+          f.id === fileId 
+            ? { 
+                ...f, 
+                status: "completed", 
+                extractedData,
+                documentAnalysisId 
+              } 
+            : f
+        )
+      )
+
+      // Add scenario to store for comparison
+      if (extractedData && addScenario) {
+        const scenario = {
+          id: documentAnalysisId || Math.random().toString(36).substr(2, 9),
+          name: `${extractedData.company} - ${extractedData.jobTitle}`,
+          jobOffer: {
+            id: documentAnalysisId || Math.random().toString(36).substr(2, 9),
+            title: extractedData.jobTitle,
+            company: extractedData.company,
+            salary: extractedData.baseSalary,
+            location: extractedData.location,
+            benefits: extractedData.benefits,
+            uploadedAt: new Date(),
+          },
+          investments: [], // Will be added by user later
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+        addScenario(scenario)
+      }
+
+      // Call the callback if provided
+      if (onFileProcessed) {
+        onFileProcessed(extractedData)
+      }
+
+    } catch (error) {
+      console.error('PDF processing error:', error)
+      
+      // Update file status to error
+      setFiles((prev) =>
+        prev.map((f) => 
+          f.id === fileId 
+            ? { 
+                ...f, 
+                status: "error", 
+                error: error instanceof Error ? error.message : 'Processing failed'
+              } 
+            : f
+        )
+      )
+    }
+  }
 
   const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
+    async (acceptedFiles: File[]) => {
+      // Check if user is logged in
+      if (!user) {
+        alert('Please log in to upload files')
+        return
+      }
+
+      // Verify we have a valid session
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        alert('Your session has expired. Please log in again.')
+        return
+      }
+
+      console.log('Session user ID:', session.user.id)
+      console.log('Store user ID:', user.id)
+
       const newFiles: UploadedFile[] = acceptedFiles.map((file) => ({
         id: Math.random().toString(36).substr(2, 9),
         name: file.name,
@@ -48,33 +174,16 @@ export default function FileUpload({
 
       setFiles((prev) => [...prev, ...newFiles].slice(0, maxFiles))
 
-      // Simulate file processing
-      newFiles.forEach((file) => {
-        setTimeout(() => {
-          setFiles((prev) => prev.map((f) => (f.id === file.id ? { ...f, status: "processing" } : f)))
-
-          // Simulate extraction after processing
-          setTimeout(() => {
-            const mockExtractedData = {
-              company: "TechCorp Inc.",
-              title: "Senior Software Engineer",
-              salary: 150000,
-              location: "San Francisco, CA",
-              benefits: ["Health Insurance", "401k Match", "Stock Options", "Flexible PTO"],
-            }
-
-            setFiles((prev) =>
-              prev.map((f) => (f.id === file.id ? { ...f, status: "completed", extractedData: mockExtractedData } : f)),
-            )
-
-            if (onFileProcessed) {
-              onFileProcessed(mockExtractedData)
-            }
-          }, 2000)
-        }, 1000)
+      // Process each file
+      newFiles.forEach((fileObj) => {
+        // Update to uploading status
+        setFiles((prev) => prev.map((f) => (f.id === fileObj.id ? { ...f, status: "uploading" } : f)))
+        
+        // Start processing
+        processPDFFile(acceptedFiles.find(f => f.name === fileObj.name)!, fileObj.id)
       })
     },
-    [maxFiles, onFileProcessed],
+    [maxFiles, onFileProcessed, user, addScenario],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -186,6 +295,9 @@ export default function FileUpload({
                       <p className="font-medium text-foreground text-sm">{file.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatFileSize(file.size)} • {getStatusText(file.status)}
+                        {file.error && (
+                          <span className="block text-red-500 mt-1">{file.error}</span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -219,11 +331,11 @@ export default function FileUpload({
                       </div>
                       <div>
                         <p className="text-sm font-medium text-foreground">Position</p>
-                        <p className="text-sm text-muted-foreground">{file.extractedData?.title}</p>
+                        <p className="text-sm text-muted-foreground">{file.extractedData?.jobTitle}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-foreground">Salary</p>
-                        <p className="text-sm text-muted-foreground">${file.extractedData?.salary.toLocaleString()}</p>
+                        <p className="text-sm text-muted-foreground">${file.extractedData?.baseSalary.toLocaleString()}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-foreground">Location</p>

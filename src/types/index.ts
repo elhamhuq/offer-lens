@@ -48,3 +48,6 @@ export interface CostOfLiving {
   index: number
   adjustedSalary: number
 }
+
+// Re-export analysis types
+export * from './analysis'
