@@ -1,25 +1,27 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-
-const inter = Inter({ subsets: ['latin'] })
+import type React from "react"
+import type { Metadata } from "next"
+import { GeistSans } from "geist/font/sans"
+import { GeistMono } from "geist/font/mono"
+import { Analytics } from "@vercel/analytics/next"
+import { Suspense } from "react"
+import "./globals.css"
 
 export const metadata: Metadata = {
-  title: 'Cashflow Compass',
-  description: 'A financial decision-making tool for evaluating job offers with investment planning',
+  title: "Cashflow Compass - Smart Financial Planning",
+  description: "Understand how job offers and investments affect your financial future",
+  generator: "v0.app",
 }
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
+}>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <div id="root">
-          {children}
-        </div>
+      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
+        <Suspense fallback={null}>{children}</Suspense>
+        <Analytics />
       </body>
     </html>
   )
