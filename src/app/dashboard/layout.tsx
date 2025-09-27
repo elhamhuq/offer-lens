@@ -4,6 +4,7 @@ import type React from 'react';
 import { useStore } from '@/store/useStore';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import DashboardNav from '@/components/DashboardNav';
 
 export default function DashboardLayout({
   children,
@@ -52,5 +53,10 @@ export default function DashboardLayout({
     );
   }
 
-  return <>{children}</>;
+  return (
+    <div className='min-h-screen bg-background'>
+      <DashboardNav />
+      <main className='pb-8'>{children}</main>
+    </div>
+  );
 }
