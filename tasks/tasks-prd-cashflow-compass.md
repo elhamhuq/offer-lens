@@ -23,13 +23,15 @@
 - `src/components/InvestmentForm.tsx` - Investment preferences form
 - `src/components/FinancialChart.tsx` - ECharts visualization component
 - `src/components/ScenarioComparison.tsx` - Side-by-side comparison component
-- `src/lib/supabase.ts` - Supabase client configuration
+- `src/lib/supabase.ts` - Supabase client configuration with TypeScript types
+- `src/lib/database.ts` - Database utility functions for CRUD operations
 - `src/lib/gemini.ts` - Google Gemini API client
 - `src/lib/financial-calculations.ts` - Financial simulation utilities
 - `src/lib/pdf-parser.ts` - PDF parsing utilities
 - `src/store/useStore.ts` - Zustand state management store
 - `src/types/index.ts` - TypeScript type definitions
-- `supabase/migrations/001_initial_schema.sql` - Database schema migration
+- `supabase/migrations/001_initial_schema.sql` - Database schema migration with RLS policies
+- `supabase/config.toml` - Supabase local development configuration
 
 ### Notes
 
@@ -51,14 +53,14 @@
   - [x] 1.7 Set up Tailwind CSS with custom theme and responsive breakpoints
   - [x] 1.8 Create comprehensive README.md with setup and run instructions
 
-- [ ] 2.0 Database Schema and Supabase Integration
-  - [ ] 2.1 Set up Supabase project and obtain connection credentials
-  - [ ] 2.2 Create database migration for users table (id, email, created_at)
-  - [ ] 2.3 Create database migration for scenarios table (id, user_id, created_at, name, salary, expenses_json, city)
-  - [ ] 2.4 Create database migration for runs table (id, scenario_id, created_at, weights_json, metrics_json)
-  - [ ] 2.5 Configure Supabase client with proper TypeScript types
-  - [ ] 2.6 Set up Row Level Security (RLS) policies for all tables
-  - [ ] 2.7 Create database utility functions for CRUD operations
+- [x] 2.0 Database Schema and Supabase Integration
+  - [x] 2.1 Set up Supabase project and obtain connection credentials
+  - [x] 2.2 Create database migration for users table (id, email, created_at)
+  - [x] 2.3 Create database migration for scenarios table (id, user_id, created_at, name, salary, expenses_json, city)
+  - [x] 2.4 Create database migration for runs table (id, scenario_id, created_at, weights_json, metrics_json)
+  - [x] 2.5 Configure Supabase client with proper TypeScript types
+  - [x] 2.6 Set up Row Level Security (RLS) policies for all tables
+  - [x] 2.7 Create database utility functions for CRUD operations
 
 - [ ] 3.0 Authentication System
   - [ ] 3.1 Configure Supabase Auth with email/password authentication
