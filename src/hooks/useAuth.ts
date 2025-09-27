@@ -2,7 +2,7 @@ import { useStore } from "../store/useStore"
 import { supabase } from "@/lib/supabase"
 
 export const useAuth = () => {
-  const { setAuthenticated, setUser } = useStore()
+  const { setAuthenticated, setUser, setAuthToken, clearAuth } = useStore()
 
   const login = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -14,7 +14,8 @@ export const useAuth = () => {
       return { success: false, error: error.message }
     }
 
-    if (data.user) {
+    if (data.user && data.session) {
+      setAuthToken(data.session.access_token)
       setAuthenticated(true)
       setUser({
         id: data.user.id,
@@ -45,7 +46,8 @@ export const useAuth = () => {
     // The user is created, but they need to confirm their email.
     // Supabase handles this, but our UI state should reflect that they are pending.
     // For now, we'll treat it as a successful signup immediately.
-    if (data.user) {
+    if (data.user && data.session) {
+        setAuthToken(data.session.access_token)
         setAuthenticated(true)
         setUser({
             id: data.user.id,
@@ -60,8 +62,7 @@ export const useAuth = () => {
 
   const logout = async () => {
     await supabase.auth.signOut()
-    setAuthenticated(false)
-    setUser(null)
+    clearAuth()
   }
 
   return {

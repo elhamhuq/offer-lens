@@ -1,34 +1,62 @@
-"use client"
+'use client';
 
-import type React from "react"
-import { useStore } from "@/store/useStore"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import type React from 'react';
+import { useStore } from '@/store/useStore';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import DashboardNav from '@/components/DashboardNav';
 
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const { isAuthenticated } = useStore()
-  const router = useRouter()
+  const { isAuthenticated, isInitialized, isLoading, initializeAuth } =
+    useStore();
+  const router = useRouter();
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/auth/login")
+    // Initialize authentication on app startup
+    if (!isInitialized) {
+      initializeAuth();
     }
-  }, [isAuthenticated, router])
+  }, [isInitialized, initializeAuth]);
 
-  if (!isAuthenticated) {
+  useEffect(() => {
+    // Only redirect after auth is initialized
+    if (isInitialized && !isAuthenticated) {
+      router.push('/auth/login');
+    }
+  }, [isAuthenticated, isInitialized, router]);
+
+  // Show loading while auth is being initialized
+  if (!isInitialized || isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+      <div className='min-h-screen bg-background flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4'></div>
+          <p className='text-muted-foreground'>Loading...</p>
         </div>
       </div>
-    )
+    );
   }
 
-  return <>{children}</>
+  // Show loading if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return (
+      <div className='min-h-screen bg-background flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4'></div>
+          <p className='text-muted-foreground'>Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className='min-h-screen bg-background'>
+      <DashboardNav />
+      <main className='pb-8'>{children}</main>
+    </div>
+  );
 }

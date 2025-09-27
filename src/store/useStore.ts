@@ -1,5 +1,7 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { Scenario, Investment, FinancialProjection } from '@/types'
+import { setCookie, getCookie, deleteCookie, isTokenValid } from '@/lib/cookies'
 
 interface User {
   id: string
@@ -11,6 +13,7 @@ interface StoreState {
   // Authentication
   isAuthenticated: boolean
   user: User | null
+  authToken: string | null
   
   // Scenarios
   scenarios: Scenario[]
@@ -25,10 +28,14 @@ interface StoreState {
   // UI State
   isLoading: boolean
   error: string | null
+  isInitialized: boolean
   
   // Actions
   setAuthenticated: (authenticated: boolean) => void
   setUser: (user: User | null) => void
+  setAuthToken: (token: string | null) => void
+  initializeAuth: () => Promise<void>
+  clearAuth: () => void
   
   addScenario: (scenario: Scenario) => void
   updateScenario: (id: string, updates: Partial<Scenario>) => void
@@ -75,20 +82,89 @@ const generateMockProjections = (): FinancialProjection[] => {
   return projections
 }
 
-export const useStore = create<StoreState>((set, get) => ({
-  // Initial state
-  isAuthenticated: false,
-  user: null,
-  scenarios: [],
-  currentScenario: null,
-  investments: [],
-  mockProjections: generateMockProjections(),
-  isLoading: false,
-  error: null,
-  
-  // Authentication actions
-  setAuthenticated: (authenticated) => set({ isAuthenticated: authenticated }),
-  setUser: (user) => set({ user }),
+export const useStore = create<StoreState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      isAuthenticated: false,
+      user: null,
+      authToken: null,
+      scenarios: [],
+      currentScenario: null,
+      investments: [],
+      mockProjections: generateMockProjections(),
+      isLoading: false,
+      error: null,
+      isInitialized: false,
+      
+      // Authentication actions
+      setAuthenticated: (authenticated) => {
+        set({ isAuthenticated: authenticated })
+        if (authenticated) {
+          // Set cookie for 1 hour when authenticated
+          const token = get().authToken
+          if (token) {
+            setCookie('auth-token', token, 1)
+          }
+        } else {
+          // Clear cookie when not authenticated
+          deleteCookie('auth-token')
+        }
+      },
+      setUser: (user) => set({ user }),
+      setAuthToken: (token) => {
+        set({ authToken: token })
+        if (token) {
+          setCookie('auth-token', token, 1)
+        } else {
+          deleteCookie('auth-token')
+        }
+      },
+      initializeAuth: async () => {
+        if (typeof window === 'undefined') return
+        
+        set({ isLoading: true })
+        
+        try {
+          const cookieToken = getCookie('auth-token')
+          
+          if (cookieToken && isTokenValid(cookieToken)) {
+            // Token exists and is valid, restore authentication
+            set({ 
+              isAuthenticated: true, 
+              authToken: cookieToken,
+              isInitialized: true 
+            })
+          } else {
+            // No valid token, clear authentication
+            deleteCookie('auth-token')
+            set({ 
+              isAuthenticated: false, 
+              user: null, 
+              authToken: null,
+              isInitialized: true 
+            })
+          }
+        } catch (error) {
+          console.error('Auth initialization error:', error)
+          set({ 
+            isAuthenticated: false, 
+            user: null, 
+            authToken: null,
+            isInitialized: true 
+          })
+        } finally {
+          set({ isLoading: false })
+        }
+      },
+      clearAuth: () => {
+        set({ 
+          isAuthenticated: false, 
+          user: null, 
+          authToken: null 
+        })
+        deleteCookie('auth-token')
+      },
   
   // Scenario actions
   addScenario: (scenario) =>
@@ -153,4 +229,16 @@ export const useStore = create<StoreState>((set, get) => ({
     
     return Math.round(totalValue)
   }
-}))
+}),
+{
+  name: 'cashflow-compass-store',
+  partialize: (state) => ({
+    isAuthenticated: state.isAuthenticated,
+    user: state.user,
+    authToken: state.authToken,
+    scenarios: state.scenarios,
+    investments: state.investments,
+  }),
+}
+)
+)
