@@ -22,13 +22,8 @@ import { cn } from '@/lib/utils';
 const navItems = [
   {
     href: '/dashboard',
-    label: 'Overview',
-    icon: LayoutDashboard,
-  },
-  {
-    href: '/dashboard/new-scenario',
     label: 'Scenarios',
-    icon: FolderOpen,
+    icon: LayoutDashboard,
   },
   {
     href: '/dashboard/investments',
