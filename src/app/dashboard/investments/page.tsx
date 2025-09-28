@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -18,11 +18,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Calculator, Target, DollarSign, Save } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calculator,
+  Target,
+  DollarSign,
+  Save,
+  ChevronDown,
+} from 'lucide-react';
 import Link from 'next/link';
 import InvestmentForm from '@/components/InvestmentForm';
-import FinancialChart from '@/components/FinancialChart';
+import PortfolioSimulation from '@/components/PortfolioSimulation';
 import type { Investment } from '@/types';
+import { useScenario } from '@/hooks/useScenario';
+import { usePortfolio } from '@/hooks/usePortfolio';
+import { SimpleDropdown, DropdownItem } from '@/components/ui/simple-dropdown';
 
 export default function InvestmentsPage() {
   const [monthlyIncome, setMonthlyIncome] = useState(12500); // $150k annual
@@ -30,6 +40,35 @@ export default function InvestmentsPage() {
   const [investmentGoal, setInvestmentGoal] = useState('retirement');
   const [timeHorizon, setTimeHorizon] = useState('30');
   const [investments, setInvestments] = useState<Investment[]>([]);
+
+  // Get scenarios from the hook
+  const { scenarios, currentScenario, setCurrentScenario } = useScenario();
+
+  // Get portfolio operations
+  const { createPortfolio, isLoading: isSavingPortfolio } = usePortfolio();
+
+  // Load scenario data when currentScenario changes
+  React.useEffect(() => {
+    if (currentScenario) {
+      // Load job offer data
+      if (currentScenario.jobOffer) {
+        const netIncome = currentScenario.jobOffer.salary / 12; // Monthly net income
+        setMonthlyIncome(netIncome);
+
+        // Estimate monthly expenses (you might want to make this configurable)
+        const estimatedExpenses = netIncome * 0.6; // Assume 60% expenses
+        setMonthlyExpenses(estimatedExpenses);
+      }
+
+      // Load investment data
+      if (
+        currentScenario.investments &&
+        currentScenario.investments.length > 0
+      ) {
+        setInvestments(currentScenario.investments);
+      }
+    }
+  }, [currentScenario]);
 
   const availableBudget = monthlyIncome - monthlyExpenses;
   const currentInvestments = investments.reduce(
@@ -43,9 +82,80 @@ export default function InvestmentsPage() {
     setInvestments(newInvestments);
   };
 
-  const savePortfolio = () => {
-    // Mock save functionality
-    console.log('Saving portfolio:', investments);
+  const savePortfolio = async () => {
+    if (investments.length === 0) {
+      alert('Please add some investments before saving the portfolio.');
+      return;
+    }
+
+    try {
+      // Convert investments to portfolio data structure
+      const portfolioData = {
+        name: `Portfolio - ${new Date().toLocaleDateString()}`,
+        description: `Portfolio created from ${currentScenario?.name || 'Investment Strategy'} scenario`,
+        portfolio_data: {
+          stocks: {
+            percentage: 100, // Assume all investments are stocks for now
+            individual_stocks: investments.map(inv => ({
+              symbol: inv.etfTicker,
+              name: inv.name,
+              percentage: (inv.monthlyAmount / currentInvestments) * 100,
+              shares: 0, // Will be calculated by the simulation
+              cost_basis: inv.monthlyAmount * 12, // Annual investment
+            })),
+          },
+          total_value: currentInvestments * 12, // Annual total
+          target_allocation: true,
+          rebalancing_frequency: 'annually' as const,
+        },
+        risk_tolerance: 'moderate' as const,
+        investment_horizon:
+          timeHorizon === '10'
+            ? 'short'
+            : timeHorizon === '20'
+              ? 'medium'
+              : ('long' as const),
+      };
+
+      const portfolio = await createPortfolio(portfolioData);
+
+      if (portfolio) {
+        // Link portfolio to current scenario if one is selected
+        if (currentScenario) {
+          try {
+            const response = await fetch(
+              `/api/scenarios/${currentScenario.id}`,
+              {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  portfolio_id: portfolio.id,
+                }),
+              }
+            );
+
+            if (response.ok) {
+              console.log(
+                'Portfolio linked to scenario:',
+                currentScenario.name
+              );
+            }
+          } catch (error) {
+            console.error('Error linking portfolio to scenario:', error);
+          }
+        }
+
+        alert('Portfolio saved successfully!');
+        console.log('Portfolio created:', portfolio);
+      } else {
+        alert('Failed to save portfolio. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving portfolio:', error);
+      alert('Failed to save portfolio. Please try again.');
+    }
   };
 
   return (
@@ -61,13 +171,56 @@ export default function InvestmentsPage() {
             long-term financial goals.
           </p>
         </div>
-        <Button
-          onClick={savePortfolio}
-          className='bg-primary hover:bg-primary/90'
-        >
-          <Save className='w-4 h-4 mr-2' />
-          Save Portfolio
-        </Button>
+        <div className='flex items-center space-x-4'>
+          {/* Scenarios Dropdown */}
+          {scenarios.length > 0 && (
+            <div className='flex items-center space-x-2'>
+              <span className='text-sm text-muted-foreground'>
+                Load Scenario:
+              </span>
+              <SimpleDropdown
+                trigger={
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    className='min-w-[200px] justify-between'
+                  >
+                    {currentScenario ? currentScenario.name : 'Select Scenario'}
+                    <ChevronDown className='w-4 h-4 ml-2' />
+                  </Button>
+                }
+              >
+                {scenarios.map(scenario => (
+                  <DropdownItem
+                    key={scenario.id}
+                    onClick={() => setCurrentScenario(scenario)}
+                    className={
+                      currentScenario?.id === scenario.id
+                        ? 'bg-primary/10 text-primary'
+                        : ''
+                    }
+                  >
+                    <div className='flex flex-col'>
+                      <span className='font-medium'>{scenario.name}</span>
+                      <span className='text-xs text-muted-foreground'>
+                        {scenario.jobOffer?.company} - $
+                        {scenario.jobOffer?.salary?.toLocaleString()}
+                      </span>
+                    </div>
+                  </DropdownItem>
+                ))}
+              </SimpleDropdown>
+            </div>
+          )}
+          <Button
+            onClick={savePortfolio}
+            disabled={isSavingPortfolio || investments.length === 0}
+            className='bg-primary hover:bg-primary/90 disabled:opacity-50'
+          >
+            <Save className='w-4 h-4 mr-2' />
+            {isSavingPortfolio ? 'Saving...' : 'Save Portfolio'}
+          </Button>
+        </div>
       </div>
 
       {/* Content Area */}
@@ -349,14 +502,10 @@ export default function InvestmentsPage() {
           </div>
         </div>
 
-        {/* Financial Projection Chart */}
-        {currentInvestments > 0 && (
+        {/* Portfolio Simulation */}
+        {investments.length > 0 && (
           <div className='mt-8'>
-            <FinancialChart
-              title='Investment Projection'
-              description={`Your portfolio growth over ${timeHorizon} years`}
-              timeHorizon={Number.parseInt(timeHorizon)}
-            />
+            <PortfolioSimulation investments={investments} />
           </div>
         )}
       </div>

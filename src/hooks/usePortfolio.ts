@@ -1,169 +1,148 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import type { Portfolio, CreatePortfolioRequest, UpdatePortfolioRequest } from '@/types/portfolio'
 
-interface UsePortfolioReturn {
-  portfolios: Portfolio[]
-  loading: boolean
-  error: string | null
-  createPortfolio: (data: CreatePortfolioRequest) => Promise<Portfolio | null>
-  updatePortfolio: (id: string, data: UpdatePortfolioRequest) => Promise<Portfolio | null>
-  deletePortfolio: (id: string) => Promise<boolean>
-  getPortfolio: (id: string) => Promise<Portfolio | null>
-  refetch: () => Promise<void>
-}
-
-export function usePortfolio(): UsePortfolioReturn {
+export const usePortfolio = () => {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
-  const [loading, setLoading] = useState(false)
+  const [currentPortfolio, setCurrentPortfolio] = useState<Portfolio | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch all portfolios
-  const fetchPortfolios = useCallback(async () => {
-    setLoading(true)
+  // Load portfolios from API
+  const loadPortfolios = async () => {
+    setIsLoading(true)
     setError(null)
-
+    
     try {
       const response = await fetch('/api/portfolios')
       const data = await response.json()
-
+      
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch portfolios')
+        throw new Error(data.error || 'Failed to load portfolios')
       }
-
+      
       setPortfolios(data.portfolios || [])
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(errorMessage)
-      console.error('Failed to fetch portfolios:', err)
+      console.error('Error loading portfolios:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load portfolios')
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
-  }, [])
+  }
 
   // Create a new portfolio
-  const createPortfolio = useCallback(async (data: CreatePortfolioRequest): Promise<Portfolio | null> => {
+  const createPortfolio = async (portfolioData: CreatePortfolioRequest): Promise<Portfolio | null> => {
+    setIsLoading(true)
     setError(null)
-
+    
     try {
       const response = await fetch('/api/portfolios', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(portfolioData),
       })
-
-      const result = await response.json()
-
+      
+      const data = await response.json()
+      
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to create portfolio')
+        throw new Error(data.error || 'Failed to create portfolio')
       }
-
-      // Add to local state
-      setPortfolios(prev => [result.portfolio, ...prev])
-      return result.portfolio
+      
+      const newPortfolio = data.portfolio
+      setPortfolios(prev => [newPortfolio, ...prev])
+      setCurrentPortfolio(newPortfolio)
+      
+      return newPortfolio
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(errorMessage)
-      console.error('Failed to create portfolio:', err)
+      console.error('Error creating portfolio:', err)
+      setError(err instanceof Error ? err.message : 'Failed to create portfolio')
       return null
+    } finally {
+      setIsLoading(false)
     }
-  }, [])
+  }
 
   // Update an existing portfolio
-  const updatePortfolio = useCallback(async (id: string, data: UpdatePortfolioRequest): Promise<Portfolio | null> => {
+  const updatePortfolio = async (id: string, updates: UpdatePortfolioRequest): Promise<Portfolio | null> => {
+    setIsLoading(true)
     setError(null)
-
+    
     try {
       const response = await fetch(`/api/portfolios/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(updates),
       })
-
-      const result = await response.json()
-
+      
+      const data = await response.json()
+      
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to update portfolio')
+        throw new Error(data.error || 'Failed to update portfolio')
       }
-
-      // Update local state
-      setPortfolios(prev => 
-        prev.map(portfolio => 
-          portfolio.id === id ? result.portfolio : portfolio
-        )
-      )
-      return result.portfolio
+      
+      const updatedPortfolio = data.portfolio
+      setPortfolios(prev => prev.map(p => p.id === id ? updatedPortfolio : p))
+      if (currentPortfolio?.id === id) {
+        setCurrentPortfolio(updatedPortfolio)
+      }
+      
+      return updatedPortfolio
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(errorMessage)
-      console.error('Failed to update portfolio:', err)
+      console.error('Error updating portfolio:', err)
+      setError(err instanceof Error ? err.message : 'Failed to update portfolio')
       return null
+    } finally {
+      setIsLoading(false)
     }
-  }, [])
+  }
 
   // Delete a portfolio
-  const deletePortfolio = useCallback(async (id: string): Promise<boolean> => {
+  const deletePortfolio = async (id: string): Promise<boolean> => {
+    setIsLoading(true)
     setError(null)
-
+    
     try {
       const response = await fetch(`/api/portfolios/${id}`, {
         method: 'DELETE',
       })
-
-      const result = await response.json()
-
+      
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to delete portfolio')
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete portfolio')
       }
-
-      // Remove from local state
-      setPortfolios(prev => prev.filter(portfolio => portfolio.id !== id))
+      
+      setPortfolios(prev => prev.filter(p => p.id !== id))
+      if (currentPortfolio?.id === id) {
+        setCurrentPortfolio(null)
+      }
+      
       return true
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(errorMessage)
-      console.error('Failed to delete portfolio:', err)
+      console.error('Error deleting portfolio:', err)
+      setError(err instanceof Error ? err.message : 'Failed to delete portfolio')
       return false
+    } finally {
+      setIsLoading(false)
     }
-  }, [])
-
-  // Get a specific portfolio
-  const getPortfolio = useCallback(async (id: string): Promise<Portfolio | null> => {
-    setError(null)
-
-    try {
-      const response = await fetch(`/api/portfolios/${id}`)
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to fetch portfolio')
-      }
-
-      return result.portfolio
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(errorMessage)
-      console.error('Failed to fetch portfolio:', err)
-      return null
-    }
-  }, [])
+  }
 
   // Load portfolios on mount
   useEffect(() => {
-    fetchPortfolios()
-  }, [fetchPortfolios])
+    loadPortfolios()
+  }, [])
 
   return {
     portfolios,
-    loading,
+    currentPortfolio,
+    isLoading,
     error,
+    loadPortfolios,
     createPortfolio,
     updatePortfolio,
     deletePortfolio,
-    getPortfolio,
-    refetch: fetchPortfolios,
+    setCurrentPortfolio,
   }
 }

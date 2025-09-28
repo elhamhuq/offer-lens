@@ -44,6 +44,7 @@ interface FinancialChartProps {
   title?: string;
   description?: string;
   showControls?: boolean;
+  scenarios?: any[];
 }
 
 interface ChartData {
@@ -92,22 +93,35 @@ export default function FinancialChart({
   title,
   description,
   showControls = true,
+  scenarios,
 }: FinancialChartProps) {
-  // Replace dummy data with real data from hook
-  const {
-    jobOffers,
-    selectedOffer,
-    selectOffer,
-    projections: hookProjections,
-    assumptions,
-    setAssumptions,
-    suggestions,
-    loadingSuggestions,
-    loading,
-    error,
-    hasOffers,
-    refreshOffers,
-  } = useJobOfferProjections();
+  // Use scenarios from props if provided, otherwise use hook
+  const hookData = useJobOfferProjections();
+
+  // Convert scenarios to job offers format if scenarios are provided
+  const jobOffers = scenarios
+    ? scenarios.map(scenario => ({
+        id: scenario.id,
+        company: scenario.jobOffer.company,
+        position: scenario.jobOffer.position,
+        baseSalary: scenario.jobOffer.salary,
+        location: scenario.jobOffer.location,
+        netIncome: scenario.jobOffer.salary / 12, // Monthly net income
+        savingsPotential: (scenario.jobOffer.salary / 12) * 0.4, // Assume 40% savings potential
+      }))
+    : hookData.jobOffers;
+
+  const selectedOffer = hookData.selectedOffer;
+  const selectOffer = hookData.selectOffer;
+  const hookProjections = hookData.projections;
+  const assumptions = hookData.assumptions;
+  const setAssumptions = hookData.setAssumptions;
+  const suggestions = hookData.suggestions;
+  const loadingSuggestions = hookData.loadingSuggestions;
+  const loading = hookData.loading;
+  const error = hookData.error;
+  const hasOffers = scenarios ? scenarios.length > 0 : hookData.hasOffers;
+  const refreshOffers = hookData.refreshOffers;
 
   // Use real projections from hook, fallback to generated ones
   const [projections, setProjections] = useState(() =>

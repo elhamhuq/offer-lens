@@ -12,13 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -40,65 +33,6 @@ interface InvestmentFormProps {
   initialInvestments?: Investment[];
   monthlyBudget?: number;
 }
-
-const popularETFs = [
-  {
-    ticker: 'SPY',
-    name: 'SPDR S&P 500 ETF',
-    category: 'Large Cap',
-    risk: 'medium',
-    expense: 0.09,
-  },
-  {
-    ticker: 'VTI',
-    name: 'Vanguard Total Stock Market',
-    category: 'Total Market',
-    risk: 'medium',
-    expense: 0.03,
-  },
-  {
-    ticker: 'VXUS',
-    name: 'Vanguard Total International',
-    category: 'International',
-    risk: 'medium',
-    expense: 0.08,
-  },
-  {
-    ticker: 'BND',
-    name: 'Vanguard Total Bond Market',
-    category: 'Bonds',
-    risk: 'low',
-    expense: 0.03,
-  },
-  {
-    ticker: 'VNQ',
-    name: 'Vanguard Real Estate',
-    category: 'REITs',
-    risk: 'high',
-    expense: 0.12,
-  },
-  {
-    ticker: 'QQQ',
-    name: 'Invesco QQQ Trust',
-    category: 'Tech',
-    risk: 'high',
-    expense: 0.2,
-  },
-  {
-    ticker: 'SCHD',
-    name: 'Schwab US Dividend Equity',
-    category: 'Dividend',
-    risk: 'medium',
-    expense: 0.06,
-  },
-  {
-    ticker: 'VTIAX',
-    name: 'Vanguard Total International',
-    category: 'International',
-    risk: 'medium',
-    expense: 0.11,
-  },
-];
 
 const riskLevels = {
   low: { color: 'text-chart-4', bg: 'bg-chart-4/10', label: 'Conservative' },
@@ -129,11 +63,8 @@ export default function InvestmentForm({
         ]
   );
 
-  const [selectedETF, setSelectedETF] = useState('');
+  const [tickerInput, setTickerInput] = useState('');
   const [newAmount, setNewAmount] = useState(500);
-
-  // Removed useEffect that was causing infinite loops
-  // Budget constraints will be handled in the UI instead
 
   const totalMonthlyInvestment = investments.reduce(
     (sum, inv) => sum + inv.monthlyAmount,
@@ -144,24 +75,22 @@ export default function InvestmentForm({
     monthlyBudget > 0 ? (totalMonthlyInvestment / monthlyBudget) * 100 : 0;
 
   const addInvestment = () => {
-    if (!selectedETF) return;
-
-    const etf = popularETFs.find(e => e.ticker === selectedETF);
-    if (!etf) return;
+    if (!tickerInput.trim() || newAmount <= 0) return;
 
     const newInvestment: Investment = {
       id: Date.now().toString(),
-      name: etf.name,
+      name: tickerInput.toUpperCase(), // Use ticker as name initially
       monthlyAmount: newAmount,
-      etfTicker: etf.ticker,
-      riskLevel: etf.risk as 'low' | 'medium' | 'high',
+      etfTicker: tickerInput.toUpperCase(), // Reusing this field for stock ticker
+      riskLevel: 'medium', // Default to medium risk for individual stocks
     };
 
     const updatedInvestments = [...investments, newInvestment];
     setInvestments(updatedInvestments);
     onInvestmentsChange?.(updatedInvestments);
 
-    setSelectedETF('');
+    // Reset form
+    setTickerInput('');
     setNewAmount(500);
   };
 
@@ -210,7 +139,7 @@ export default function InvestmentForm({
           <span>Investment Portfolio</span>
         </CardTitle>
         <CardDescription>
-          Build your ETF portfolio and set monthly contribution amounts
+          Build your stock portfolio and set monthly contribution amounts
         </CardDescription>
       </CardHeader>
       <CardContent className='space-y-6'>
@@ -300,9 +229,6 @@ export default function InvestmentForm({
 
           <div className='space-y-3'>
             {investments.map(investment => {
-              const etf = popularETFs.find(
-                e => e.ticker === investment.etfTicker
-              );
               return (
                 <Card key={investment.id} className='bg-muted/30 border-border'>
                   <CardContent className='p-4'>
@@ -322,11 +248,9 @@ export default function InvestmentForm({
                         <p className='text-sm text-muted-foreground'>
                           {investment.name}
                         </p>
-                        {etf && (
-                          <p className='text-xs text-muted-foreground'>
-                            {etf.category} • {etf.expense}% expense ratio
-                          </p>
-                        )}
+                        <p className='text-xs text-muted-foreground'>
+                          Individual Stock
+                        </p>
                       </div>
                       <Button
                         variant='ghost'
@@ -383,35 +307,13 @@ export default function InvestmentForm({
           <CardContent className='space-y-4'>
             <div className='grid md:grid-cols-2 gap-4'>
               <div className='space-y-2'>
-                <Label>Select ETF</Label>
-                <Select value={selectedETF} onValueChange={setSelectedETF}>
-                  <SelectTrigger>
-                    <SelectValue placeholder='Choose an ETF' />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {popularETFs.map(etf => (
-                      <SelectItem key={etf.ticker} value={etf.ticker}>
-                        <div className='flex items-center justify-between w-full'>
-                          <div>
-                            <span className='font-medium'>{etf.ticker}</span>
-                            <span className='text-muted-foreground ml-2'>
-                              {etf.name}
-                            </span>
-                          </div>
-                          <Badge
-                            variant='secondary'
-                            className={`ml-2 ${riskLevels[etf.risk as keyof typeof riskLevels].bg}`}
-                          >
-                            {
-                              riskLevels[etf.risk as keyof typeof riskLevels]
-                                .label
-                            }
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Stock Ticker Symbol</Label>
+                <Input
+                  type='text'
+                  value={tickerInput}
+                  onChange={e => setTickerInput(e.target.value.toUpperCase())}
+                  placeholder='Enter ticker (e.g., AAPL, MSFT, TSLA)'
+                />
               </div>
 
               <div className='space-y-2'>
@@ -428,56 +330,12 @@ export default function InvestmentForm({
               </div>
             </div>
 
-            {selectedETF && (
-              <div className='p-3 bg-muted/30 rounded-lg'>
-                {(() => {
-                  const etf = popularETFs.find(e => e.ticker === selectedETF);
-                  return (
-                    etf && (
-                      <div className='space-y-2'>
-                        <div className='flex items-center justify-between'>
-                          <span className='font-medium text-foreground'>
-                            {etf.name}
-                          </span>
-                          <Badge
-                            variant='secondary'
-                            className={`${riskLevels[etf.risk as keyof typeof riskLevels].bg} ${riskLevels[etf.risk as keyof typeof riskLevels].color}`}
-                          >
-                            {
-                              riskLevels[etf.risk as keyof typeof riskLevels]
-                                .label
-                            }
-                          </Badge>
-                        </div>
-                        <div className='grid grid-cols-2 gap-4 text-sm'>
-                          <div>
-                            <span className='text-muted-foreground'>
-                              Category:
-                            </span>
-                            <span className='ml-1 text-foreground'>
-                              {etf.category}
-                            </span>
-                          </div>
-                          <div>
-                            <span className='text-muted-foreground'>
-                              Expense Ratio:
-                            </span>
-                            <span className='ml-1 text-foreground'>
-                              {etf.expense}%
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  );
-                })()}
-              </div>
-            )}
-
             <Button
               onClick={addInvestment}
               disabled={
-                !selectedETF || newAmount <= 0 || newAmount > remainingBudget
+                !tickerInput.trim() ||
+                newAmount <= 0 ||
+                newAmount > remainingBudget
               }
               className='w-full bg-primary hover:bg-primary/90'
             >
