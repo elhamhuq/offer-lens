@@ -134,28 +134,46 @@ export class GeminiClient {
   async answerQuestion(
     question: string,
     extractedData: ExtractedData,
-    previousAnalysis?: FinancialAnalysis,
-    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+    financialAnalysis: any,
+    history?: Array<{ role: 'user' | 'assistant'; content: string }>,
+    contextChunks?: string[]
   ): Promise<ConversationalResponse> {
-    const structuredModel = this.model.withStructuredOutput(conversationalResponseSchema, {
-      name: 'conversational_response',
-    })
+    console.log('🧠 Invoking Gemini for conversational follow-up...')
+    
+    // Create a structured output model
+    const structuredModel = this.model.withStructuredOutput(conversationalResponseSchema)
 
+    // Build the conversational prompt
     const prompt = this.buildConversationalPrompt(
       question,
       extractedData,
-      previousAnalysis,
-      conversationHistory
+      financialAnalysis,
+      history,
+      contextChunks
     )
 
     try {
       console.log('🤖 Processing follow-up question with Gemini...')
-      const result = await structuredModel.invoke([['human', prompt]])
+      
+      // Use the structured output model to ensure the response matches our schema
+      const result = await structuredModel.invoke(prompt)
+      
       console.log('✅ Gemini response generated')
-      return result as ConversationalResponse
+      console.log('Response structure:', Object.keys(result).join(', '))
+      
+      return result
     } catch (error) {
       console.error('❌ Gemini conversation failed:', error)
-      throw new Error('Failed to process question with Gemini')
+      
+      // Provide a fallback response if the model fails
+      return {
+        answer: "I'm sorry, I couldn't process your question at this time. Please try again or ask a different question.",
+        followUpQuestions: [
+          "Could you rephrase your question?",
+          "Would you like to know about the salary details instead?",
+          "Should we discuss the benefits package?"
+        ]
+      }
     }
   }
 
@@ -250,8 +268,9 @@ Consider factors like:
   private buildConversationalPrompt(
     question: string,
     data: ExtractedData,
-    previousAnalysis?: FinancialAnalysis,
-    history?: Array<{ role: string; content: string }>
+    financialAnalysis: any,
+    history?: Array<{ role: string; content: string }>,
+    contextChunks?: string[]
   ): string {
     let prompt = `You are a helpful financial advisor assistant. You have previously analyzed a job offer with the following details:
 
@@ -261,7 +280,7 @@ Base Salary: $${data.baseSalary}
 Location: ${data.location}
 Benefits: ${data.benefits?.join(', ') || 'Not specified'}
 
-${previousAnalysis ? `Previous Analysis Summary: ${previousAnalysis.summary}` : ''}`
+${financialAnalysis ? `Previous Analysis Summary: ${financialAnalysis.summary}` : ''}`
 
     if (history && history.length > 0) {
       prompt += '\n\nConversation History:\n'
@@ -272,10 +291,21 @@ ${previousAnalysis ? `Previous Analysis Summary: ${previousAnalysis.summary}` : 
 
     prompt += `\n\nUser Question: ${question}
 
-Please provide:
-1. A clear, direct answer to the question
-2. Any relevant supporting data points
-3. 2-3 suggested follow-up questions that might help the user make a better decision
+You must respond in the following JSON format:
+{
+  "answer": "A clear, direct answer to the question",
+  "supportingData": [
+    {"label": "Data Point Label 1", "value": "Data Point Value 1"},
+    {"label": "Data Point Label 2", "value": "Data Point Value 2"}
+  ],
+  "followUpQuestions": [
+    "Suggested follow-up question 1?",
+    "Suggested follow-up question 2?",
+    "Suggested follow-up question 3?"
+  ]
+}
+
+The answer should be comprehensive but conversational. The supportingData array can be empty if there are no relevant data points.
 
 Be concise but thorough. Focus on practical, actionable insights.`
 

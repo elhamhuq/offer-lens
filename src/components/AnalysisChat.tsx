@@ -39,13 +39,15 @@ interface AnalysisChatProps {
   companyName?: string
   position?: string
   onClose?: () => void
+  isChatEnabled: boolean
 }
 
 export default function AnalysisChat({
   analysisId,
   companyName = "this company",
   position = "this position",
-  onClose
+  onClose,
+  isChatEnabled
 }: AnalysisChatProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
@@ -192,11 +194,21 @@ export default function AnalysisChat({
   }
 
   const formatTimestamp = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    }).format(date)
+    try {
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Just now'
+      }
+      
+      return new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }).format(date)
+    } catch (error) {
+      console.error('Invalid date:', date)
+      return 'Just now'
+    }
   }
 
   const getDataPointIcon = (label: string) => {
@@ -254,13 +266,15 @@ export default function AnalysisChat({
               </div>
               <div className="space-y-2">
                 <h3 className="font-medium text-gray-900">
-                  Hi! I'm your AI Financial Advisor
+                  {isChatEnabled ? "Hi! I'm your AI Financial Advisor" : "AI Advisor is initializing..."}
                 </h3>
                 <p className="text-sm text-gray-600 max-w-sm">
-                  I can help you understand the financial implications of this job offer, 
-                  compare it to market rates, and provide negotiation strategies.
+                  {isChatEnabled 
+                    ? "I can help you understand the financial implications of this job offer, compare it to market rates, and provide negotiation strategies."
+                    : "Please wait for the initial analysis to complete. The chat will be enabled automatically."}
                 </p>
               </div>
+              {!isChatEnabled && <Loader2 className="h-5 w-5 animate-spin" />}
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <Sparkles className="h-3 w-3" />
                 Powered by Google Gemini
@@ -384,11 +398,11 @@ export default function AnalysisChat({
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about salary, benefits, negotiations..."
-              disabled={isLoading}
+              placeholder={isChatEnabled ? "Ask about salary, benefits, negotiations..." : "Waiting for analysis to complete..."}
+              disabled={isLoading || !isChatEnabled}
               className="flex-1"
             />
-            <Button type="submit" disabled={!input.trim() || isLoading}>
+            <Button type="submit" disabled={!input.trim() || isLoading || !isChatEnabled}>
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
