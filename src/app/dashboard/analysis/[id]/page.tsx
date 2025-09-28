@@ -17,23 +17,38 @@ import {
   Loader2,
   AlertCircle,
   Download,
-  Share2
+  Share2,
+  Plus,
+  CheckCircle
 } from "lucide-react"
+import { useScenario } from '@/hooks/useScenario'
+import type { JobOffer, Investment } from '@/types'
+import type { ExtractedData, FinancialAnalysis } from '@/types/analysis'
 
 export default function AnalysisPage() {
   const params = useParams()
   const router = useRouter()
   const analysisId = params.id as string
+  const { createScenario } = useScenario()
 
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [analysisData, setAnalysisData] = useState<any>(null)
+  const [analysisData, setAnalysisData] = useState<{
+    extractedData: ExtractedData
+    financialAnalysis: FinancialAnalysis
+    confidenceScores: Record<string, number>
+    filename: string
+    createdAt: string
+    metadata?: any
+    formattedAnalysis?: any
+  } | null>(null)
   const [analysisStatus, setAnalysisStatus] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("results")
+  const [isCreatingScenario, setIsCreatingScenario] = useState(false)
+  const [scenarioCreated, setScenarioCreated] = useState(false)
 
   useEffect(() => {
     if (analysisId && analysisId !== 'new') {
-      // Immediately check status on load
       checkAnalysisStatus()
 
       const poller = setInterval(() => {
@@ -51,7 +66,6 @@ export default function AnalysisPage() {
   }, [analysisId])
 
   useEffect(() => {
-    // When status becomes 'completed', fetch the full results
     if (analysisStatus === 'completed' && !analysisData) {
       console.log('🔄 Status is completed, fetching full results')
       fetchResults()
@@ -69,6 +83,10 @@ export default function AnalysisPage() {
       const data = await response.json()
       setAnalysisData(data)
       setError(null)
+
+      // Auto-create scenario after successful fetch
+      await createScenarioFromAnalysis(data)
+      
     } catch (err) {
       console.error("Error fetching results:", err)
       setError(err instanceof Error ? err.message : "Failed to load analysis results")
@@ -79,7 +97,6 @@ export default function AnalysisPage() {
 
   const checkAnalysisStatus = async () => {
     try {
-      // Don't set loading state here to avoid UI flicker during polling
       const response = await fetch(`/api/analysis/${analysisId}/status`)
       const data = await response.json()
 
@@ -96,13 +113,86 @@ export default function AnalysisPage() {
     }
   }
 
-  const handleAnalysisComplete = (newAnalysisId: string, data: any) => {
-    // Navigate to the new analysis page
+  // Auto-create scenario from analysis results
+  const createScenarioFromAnalysis = async (analysisData: any) => {
+    if (!analysisData?.extractedData || scenarioCreated) return
+
+    try {
+      setIsCreatingScenario(true)
+      
+      const { extractedData, financialAnalysis } = analysisData
+
+      // Map ExtractedData to JobOffer (your exact interface)
+      const jobOffer: JobOffer = {
+        id: `analysis-${analysisId}-${Date.now()}`,
+        title: extractedData.jobTitle || 'Unknown Position',
+        company: extractedData.company || 'Unknown Company', 
+        salary: extractedData.baseSalary || 0,
+        location: extractedData.location || 'Unknown Location',
+        benefits: extractedData.benefits || [],
+        uploadedAt: new Date()
+      }
+
+      // Generate default investments (your exact Investment interface)
+      const savingsPotential = financialAnalysis?.monthlyBreakdown?.savingsPotential || 2000
+      const defaultInvestments = generateDefaultInvestments(savingsPotential)
+
+      // Create scenario name
+      const scenarioName = `${jobOffer.company} - ${jobOffer.title}`
+
+      // Create the scenario
+      const newScenario = await createScenario(scenarioName, jobOffer, defaultInvestments)
+      
+      if (newScenario) {
+        setScenarioCreated(true)
+        console.log('✅ Scenario created successfully:', newScenario)
+      }
+
+    } catch (error) {
+      console.error('Failed to create scenario from analysis:', error)
+    } finally {
+      setIsCreatingScenario(false)
+    }
+  }
+
+  // Generate investments matching your exact Investment interface
+  const generateDefaultInvestments = (savingsPotential: number): Investment[] => {
+    const monthlyInvestment = Math.max(100, Math.round(savingsPotential * 0.6))
+    
+    return [
+      {
+        id: Date.now().toString(),
+        name: 'Total Stock Market ETF',
+        monthlyAmount: Math.round(monthlyInvestment * 0.7),
+        etfTicker: 'VTI',
+        riskLevel: 'medium' as const
+      },
+      {
+        id: (Date.now() + 1).toString(),
+        name: 'Total Bond Market ETF', 
+        monthlyAmount: Math.round(monthlyInvestment * 0.3),
+        etfTicker: 'BND',
+        riskLevel: 'low' as const
+      }
+    ]
+  }
+
+  const handleManualScenarioCreation = async () => {
+    if (!analysisData) return
+    
+    try {
+      setIsCreatingScenario(true)
+      await createScenarioFromAnalysis(analysisData)
+    } finally {
+      setIsCreatingScenario(false)
+    }
+  }
+
+  const handleAnalysisComplete = async (newAnalysisId: string, data: any) => {
     router.push(`/dashboard/analysis/${newAnalysisId}`)
   }
 
   const handleDataUpdate = async (updatedData: any) => {
-    // Reload the analysis data after update
     await fetchResults()
   }
 
@@ -156,6 +246,9 @@ export default function AnalysisPage() {
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
             <p className="text-gray-600">Loading analysis...</p>
+            {isCreatingScenario && (
+              <p className="text-sm text-purple-600">Creating scenario...</p>
+            )}
           </div>
         </div>
       </div>
@@ -219,6 +312,20 @@ export default function AnalysisPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={handleManualScenarioCreation}
+            disabled={isCreatingScenario}
+            className="gap-2"
+          >
+            {isCreatingScenario ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            Create Scenario
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => handleExport('markdown')}
           >
             <Download className="h-4 w-4 mr-2" />
@@ -228,7 +335,6 @@ export default function AnalysisPage() {
             variant="outline"
             size="sm"
             onClick={() => {
-              // Share functionality
               navigator.clipboard.writeText(window.location.href)
               alert("Link copied to clipboard!")
             }}
@@ -238,6 +344,24 @@ export default function AnalysisPage() {
           </Button>
         </div>
       </div>
+
+      {/* Success notification */}
+      {scenarioCreated && (
+        <Alert className="bg-green-50 border-green-200">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            Scenario created successfully! View it on your{' '}
+            <Button 
+              variant="link" 
+              className="h-auto p-0 text-green-600 underline"
+              onClick={() => router.push('/dashboard')}
+            >
+              dashboard
+            </Button>
+            .
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Processing Warning */}
       {error && analysisData && (
@@ -285,7 +409,6 @@ export default function AnalysisPage() {
             <CardContent>
               {analysisData?.formattedAnalysis ? (
                 <div className="prose prose-sm max-w-none">
-                  {/* Render formatted analysis */}
                   <div className="space-y-4">
                     <div>
                       <h3 className="text-lg font-semibold mb-2">Summary</h3>

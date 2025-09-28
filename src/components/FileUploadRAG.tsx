@@ -89,24 +89,25 @@ export default function FileUploadRAG({
           clearInterval(pollInterval)
           
           if (data.isComplete) {
-            // Fetch full results
-            const resultsResponse = await fetch(`/api/analysis/${analysisId}/results`)
-            if (resultsResponse.ok) {
-              const results = await resultsResponse.json()
-              
-              setFiles(prev => prev.map(f => 
-                f.id === fileId 
-                  ? { 
-                      ...f, 
-                      extractedData: results.extractedData,
-                      financialAnalysis: results.financialAnalysis
-                    } 
-                  : f
-              ))
+  // Fetch full results
+  const resultsResponse = await fetch(`/api/analysis/${analysisId}/results`)
+  if (resultsResponse.ok) {
+    const results = await resultsResponse.json()
+    
+    setFiles(prev => prev.map(f => 
+      f.id === fileId 
+        ? { 
+            ...f, 
+            extractedData: results.extractedData,
+            financialAnalysis: results.financialAnalysis
+          } 
+        : f
+    ))
 
-              onAnalysisComplete?.(analysisId, results)
-            }
-          }
+    // Call the completion handler with full results
+    onAnalysisComplete?.(analysisId, results)
+  }
+}
         }
       } catch (error) {
         console.error('Status polling error:', error)
@@ -249,17 +250,12 @@ export default function FileUploadRAG({
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-purple-500" />
-          AI-Powered Document Analysis
-        </CardTitle>
-        <CardDescription>
-          Upload job offer PDFs for instant AI analysis with financial insights
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    // <Card className="w-full">
+      
+      
+    // </Card>
+
+    <CardContent className="space-y-4">
         {/* Dropzone */}
         <div
           {...getRootProps()}
@@ -452,6 +448,5 @@ export default function FileUploadRAG({
           </Alert>
         )}
       </CardContent>
-    </Card>
   )
 }

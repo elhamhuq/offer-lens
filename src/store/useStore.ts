@@ -101,18 +101,28 @@ export const useStore = create<StoreState>()(
       
       // Authentication actions
       setAuthenticated: (authenticated) => {
-        set({ isAuthenticated: authenticated })
-        if (authenticated) {
-          // Set cookie for 1 hour when authenticated
-          const token = get().authToken
-          if (token) {
-            setCookie('auth-token', token, 1)
-          }
-        } else {
-          // Clear cookie when not authenticated
-          deleteCookie('auth-token')
-        }
-      },
+  const wasAuthenticated = get().isAuthenticated
+  set({ isAuthenticated: authenticated })
+  
+  if (authenticated) {
+    // Set cookie for 1 hour when authenticated
+    const token = get().authToken
+    if (token) {
+      setCookie('auth-token', token, 1)
+    }
+    
+    // Load scenarios when user logs in (but not when restoring from cookie)
+    if (!wasAuthenticated) {
+      console.log('🔄 User just logged in, loading scenarios...')
+      get().loadScenarios()
+    }
+  } else {
+    // Clear cookie when not authenticated
+    deleteCookie('auth-token')
+    // Clear scenarios when logging out
+    set({ scenarios: [], currentScenario: null })
+  }
+},
       setUser: (user) => set({ user }),
       setAuthToken: (token) => {
         set({ authToken: token })
@@ -172,29 +182,34 @@ export const useStore = create<StoreState>()(
       },
       
       loadScenarios: async () => {
-        const { user, isAuthenticated } = get()
-        if (!isAuthenticated || !user) {
-          return
-        }
+  const { user, isAuthenticated } = get()
+  if (!isAuthenticated || !user) {
+    console.log('❌ Cannot load scenarios: user not authenticated')
+    return
+  }
 
-        try {
-          const dbScenarios = await scenariosDb.getByUserId(user.id)
-          
-          // Convert database scenarios to local format
-          const scenarios: Scenario[] = dbScenarios.map(dbScenario => ({
-            id: dbScenario.id,
-            name: dbScenario.name,
-            jobOffer: dbScenario.job_offer,
-            investments: dbScenario.investments,
-            createdAt: new Date(dbScenario.created_at),
-            updatedAt: new Date(dbScenario.updated_at),
-          }))
+  try {
+    console.log('🔄 Loading scenarios for user:', user.id)
+    const dbScenarios = await scenariosDb.getByUserId(user.id)
+    
+    // Convert database scenarios to local format
+    const scenarios: Scenario[] = dbScenarios.map(dbScenario => ({
+      id: dbScenario.id,
+      name: dbScenario.name,
+      jobOffer: dbScenario.job_offer,
+      investments: dbScenario.investments,
+      createdAt: new Date(dbScenario.created_at),
+      updatedAt: new Date(dbScenario.updated_at),
+    }))
 
-          set({ scenarios })
-        } catch (error) {
-          console.error('Error loading scenarios:', error)
-        }
-      },
+    console.log('✅ Loaded scenarios:', scenarios.length)
+    set({ scenarios })
+  } catch (error) {
+    console.error('❌ Error loading scenarios:', error)
+    throw error // Re-throw so dashboard can handle it
+  }
+},
+
   
   // Scenario actions
   addScenario: (scenario) =>

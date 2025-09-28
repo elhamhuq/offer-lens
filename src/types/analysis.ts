@@ -152,3 +152,28 @@ export interface GetAnalysisHistoryResponse {
   hasMore: boolean
 }
 
+// Add this to your existing types/analysis.ts file
+
+export interface FinancialAnalysis {
+  summary: string
+  keyInsights: Array<{
+    category: string
+    insight: string
+    impact: 'positive' | 'negative' | 'neutral'
+  }>
+  monthlyBreakdown: {
+    grossIncome: number
+    estimatedTaxes: number
+    netIncome: number
+    estimatedExpenses?: number
+    savingsPotential?: number
+  }
+  recommendations: string[]
+  comparisonPoints: Array<{
+    factor: string
+    value: string
+    benchmark?: string
+  }>
+}
+
+
