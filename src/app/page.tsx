@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ArrowRight, Upload, Calculator, TrendingUp, Brain, Shield, Zap } from "lucide-react"
 import Link from "next/link"
+import AnimatedPortfolioChart from "@/components/AnimatedPortfolioChart"
 
 export default function LandingPage() {
   return (
@@ -100,8 +101,8 @@ export default function LandingPage() {
                         <div className="text-3xl font-bold text-accent">$2.4M</div>
                         <div className="text-sm text-muted-foreground">Projected portfolio value</div>
                       </div>
-                      <div className="h-32 bg-gradient-to-r from-accent/20 to-accent/40 rounded-lg flex items-end justify-center">
-                        <div className="text-xs text-accent font-medium mb-2">📈 Growth trajectory</div>
+                      <div className="h-32 rounded-lg overflow-hidden">
+                        <AnimatedPortfolioChart className="h-full" />
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
