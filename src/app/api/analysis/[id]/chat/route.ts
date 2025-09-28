@@ -84,11 +84,18 @@ export async function POST(
     }
 
     // Check if analysis is complete
-    if (analysis.status !== 'completed') {
+    console.log('🔍 Analysis status check:', {
+      id: analysis.id,
+      status: analysis.processing_status,
+      isCompleted: analysis.processing_status === 'completed'
+    })
+    
+    if (analysis.processing_status !== 'completed') {
       return NextResponse.json(
         { 
           error: 'Analysis not complete',
-          message: 'Please wait for the analysis to complete before asking questions.'
+          message: 'Please wait for the analysis to complete before asking questions.',
+          currentStatus: analysis.processing_status
         },
         { status: 400 }
       )
@@ -158,7 +165,8 @@ export async function POST(
         conversationSummary?.recentMessages.map(m => ({
           role: m.role as 'user' | 'assistant',
           content: m.content,
-        }))
+        })),
+        relevantChunks
       ),
       user.id
     )

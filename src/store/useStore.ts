@@ -1,5 +1,8 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { Scenario, Investment, FinancialProjection } from '@/types'
+import { setCookie, getCookie, deleteCookie, isTokenValid } from '@/lib/cookies'
+import { scenariosDb } from '@/lib/database'
 
 interface User {
   id: string
@@ -11,6 +14,7 @@ interface StoreState {
   // Authentication
   isAuthenticated: boolean
   user: User | null
+  authToken: string | null
   
   // Scenarios
   scenarios: Scenario[]
@@ -25,10 +29,15 @@ interface StoreState {
   // UI State
   isLoading: boolean
   error: string | null
+  isInitialized: boolean
   
   // Actions
   setAuthenticated: (authenticated: boolean) => void
   setUser: (user: User | null) => void
+  setAuthToken: (token: string | null) => void
+  initializeAuth: () => Promise<void>
+  clearAuth: () => void
+  loadScenarios: () => Promise<void>
   
   addScenario: (scenario: Scenario) => void
   updateScenario: (id: string, updates: Partial<Scenario>) => void
@@ -75,20 +84,117 @@ const generateMockProjections = (): FinancialProjection[] => {
   return projections
 }
 
-export const useStore = create<StoreState>((set, get) => ({
-  // Initial state
-  isAuthenticated: false,
-  user: null,
-  scenarios: [],
-  currentScenario: null,
-  investments: [],
-  mockProjections: generateMockProjections(),
-  isLoading: false,
-  error: null,
-  
-  // Authentication actions
-  setAuthenticated: (authenticated) => set({ isAuthenticated: authenticated }),
-  setUser: (user) => set({ user }),
+export const useStore = create<StoreState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      isAuthenticated: false,
+      user: null,
+      authToken: null,
+      scenarios: [],
+      currentScenario: null,
+      investments: [],
+      mockProjections: generateMockProjections(),
+      isLoading: false,
+      error: null,
+      isInitialized: false,
+      
+      // Authentication actions
+      setAuthenticated: (authenticated) => {
+        set({ isAuthenticated: authenticated })
+        if (authenticated) {
+          // Set cookie for 1 hour when authenticated
+          const token = get().authToken
+          if (token) {
+            setCookie('auth-token', token, 1)
+          }
+        } else {
+          // Clear cookie when not authenticated
+          deleteCookie('auth-token')
+        }
+      },
+      setUser: (user) => set({ user }),
+      setAuthToken: (token) => {
+        set({ authToken: token })
+        if (token) {
+          setCookie('auth-token', token, 1)
+        } else {
+          deleteCookie('auth-token')
+        }
+      },
+      initializeAuth: async () => {
+        if (typeof window === 'undefined') return
+        
+        set({ isLoading: true })
+        
+        try {
+          const cookieToken = getCookie('auth-token')
+          
+          if (cookieToken && isTokenValid(cookieToken)) {
+            // Token exists and is valid, restore authentication
+            set({ 
+              isAuthenticated: true, 
+              authToken: cookieToken,
+              isInitialized: true 
+            })
+            // Load scenarios after authentication is restored
+            get().loadScenarios()
+          } else {
+            // No valid token, clear authentication
+            deleteCookie('auth-token')
+            set({ 
+              isAuthenticated: false, 
+              user: null, 
+              authToken: null,
+              isInitialized: true 
+            })
+          }
+        } catch (error) {
+          console.error('Auth initialization error:', error)
+          set({ 
+            isAuthenticated: false, 
+            user: null, 
+            authToken: null,
+            isInitialized: true 
+          })
+        } finally {
+          set({ isLoading: false })
+        }
+      },
+      clearAuth: () => {
+        set({ 
+          isAuthenticated: false, 
+          user: null, 
+          authToken: null,
+          scenarios: []
+        })
+        deleteCookie('auth-token')
+      },
+      
+      loadScenarios: async () => {
+        const { user, isAuthenticated } = get()
+        if (!isAuthenticated || !user) {
+          return
+        }
+
+        try {
+          const dbScenarios = await scenariosDb.getByUserId(user.id)
+          
+          // Convert database scenarios to local format
+          const scenarios: Scenario[] = dbScenarios.map(dbScenario => ({
+            id: dbScenario.id,
+            name: dbScenario.name,
+            jobOffer: dbScenario.job_offer,
+            investments: dbScenario.investments,
+            createdAt: new Date(dbScenario.created_at),
+            updatedAt: new Date(dbScenario.updated_at),
+          }))
+
+          set({ scenarios })
+        } catch (error) {
+          console.error('Error loading scenarios:', error)
+        }
+      },
   
   // Scenario actions
   addScenario: (scenario) =>
@@ -153,4 +259,16 @@ export const useStore = create<StoreState>((set, get) => ({
     
     return Math.round(totalValue)
   }
-}))
+}),
+{
+  name: 'cashflow-compass-store',
+  partialize: (state) => ({
+    isAuthenticated: state.isAuthenticated,
+    user: state.user,
+    authToken: state.authToken,
+    scenarios: state.scenarios,
+    investments: state.investments,
+  }),
+}
+)
+)

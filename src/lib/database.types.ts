@@ -2,6 +2,73 @@
 export interface Database {
   public: {
     Tables: {
+      portfolios: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          description: string | null
+          portfolio_data: any
+          risk_tolerance: 'conservative' | 'moderate' | 'aggressive'
+          investment_horizon: 'short' | 'medium' | 'long'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          description?: string | null
+          portfolio_data?: any
+          risk_tolerance?: 'conservative' | 'moderate' | 'aggressive'
+          investment_horizon?: 'short' | 'medium' | 'long'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          description?: string | null
+          portfolio_data?: any
+          risk_tolerance?: 'conservative' | 'moderate' | 'aggressive'
+          investment_horizon?: 'short' | 'medium' | 'long'
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      scenarios: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          job_offer: any
+          investments: any
+          portfolio_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          job_offer: any
+          investments?: any
+          portfolio_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          job_offer?: any
+          investments?: any
+          portfolio_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       document_analysis: {
         Row: {
           id: string
