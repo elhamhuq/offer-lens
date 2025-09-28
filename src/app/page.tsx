@@ -132,14 +132,14 @@ export default function LandingPage() {
                           30 years
                         </span>
                       </div>
-                       <div className='space-y-2'>
-                         <div className='text-3xl font-bold text-accent'>
-                           $2.3M
-                         </div>
-                         <div className='text-sm text-muted-foreground'>
-                           Projected portfolio value
-                         </div>
-                       </div>
+                      <div className='space-y-2'>
+                        <div className='text-3xl font-bold text-accent'>
+                          $2.3M
+                        </div>
+                        <div className='text-sm text-muted-foreground'>
+                          Projected portfolio value
+                        </div>
+                      </div>
                       <div className='h-32 rounded-lg overflow-hidden'>
                         <AnimatedPortfolioChart className='h-full' />
                       </div>
