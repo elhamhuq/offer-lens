@@ -22,6 +22,7 @@ import {
   Target,
   DollarSign,
 } from 'lucide-react';
+import ReactECharts from 'echarts-for-react';
 import type { Investment } from '@/types';
 
 interface SimulationResults {
@@ -139,6 +140,292 @@ export default function PortfolioSimulation({
     if (prob < 0.1) return 'Low Risk';
     if (prob < 0.2) return 'Medium Risk';
     return 'High Risk';
+  };
+
+  // Chart generation functions
+  const generatePortfolioChart = () => {
+    if (!results) return {};
+
+    // Scale to 252 trading days
+    const tradingDays = 252;
+    const days = Array.from({ length: tradingDays + 1 }, (_, i) => i);
+    const totalValue = investments.reduce(
+      (sum, inv) => sum + inv.monthlyAmount * 12,
+      0
+    );
+
+    // Scale the percentile data to 252 days
+    const scaleData = (data: number[]) => {
+      if (data.length <= tradingDays) return data;
+      const step = data.length / tradingDays;
+      return Array.from({ length: tradingDays + 1 }, (_, i) => {
+        const index = Math.floor(i * step);
+        return data[Math.min(index, data.length - 1)];
+      });
+    };
+
+    return {
+      title: {
+        text: 'Portfolio Value Simulation',
+        subtext: ``,
+        left: 'center',
+        textStyle: { color: '#333', fontSize: 16 },
+        subtextStyle: { color: '#666', fontSize: 12 },
+      },
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: any) => {
+          const day = params[0].axisValue;
+          const value = params[0].value;
+          return `Day ${day}: $${value.toLocaleString()}`;
+        },
+      },
+      legend: {
+        data: [
+          '5th Percentile',
+          '25th Percentile',
+          'Median',
+          '75th Percentile',
+          '95th Percentile',
+        ],
+        top: 30,
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        top: '15%',
+        containLabel: true,
+      },
+      xAxis: {
+        type: 'category',
+        data: days,
+        name: 'Days',
+        nameLocation: 'middle',
+        nameGap: 30,
+      },
+      yAxis: {
+        type: 'value',
+        name: 'Portfolio Value ($)',
+        nameLocation: 'middle',
+        nameGap: 50,
+        axisLabel: {
+          formatter: '${value}',
+        },
+      },
+      series: [
+        {
+          name: '95th Percentile',
+          type: 'line',
+          data: scaleData(results.percentiles.p95).map(val => val * totalValue),
+          lineStyle: { color: '#ff6b6b', width: 1 },
+          areaStyle: { color: 'rgba(255, 107, 107, 0.1)' },
+          showSymbol: false,
+        },
+        {
+          name: '75th Percentile',
+          type: 'line',
+          data: scaleData(results.percentiles.p75).map(val => val * totalValue),
+          lineStyle: { color: '#4ecdc4', width: 1 },
+          areaStyle: { color: 'rgba(78, 205, 196, 0.1)' },
+          showSymbol: false,
+        },
+        {
+          name: 'Median',
+          type: 'line',
+          data: scaleData(results.percentiles.p50).map(val => val * totalValue),
+          lineStyle: { color: '#45b7d1', width: 2 },
+          showSymbol: false,
+        },
+        {
+          name: '25th Percentile',
+          type: 'line',
+          data: scaleData(results.percentiles.p25).map(val => val * totalValue),
+          lineStyle: { color: '#96ceb4', width: 1 },
+          showSymbol: false,
+        },
+        {
+          name: '5th Percentile',
+          type: 'line',
+          data: scaleData(results.percentiles.p5).map(val => val * totalValue),
+          lineStyle: { color: '#feca57', width: 1 },
+          showSymbol: false,
+        },
+      ],
+    };
+  };
+
+  const generateReturnsChart = () => {
+    if (!results) return {};
+
+    const returnsData = results.returns;
+    const minReturn = Math.min(...returnsData);
+    const maxReturn = Math.max(...returnsData);
+    const numBins = 50;
+    const binWidth = (maxReturn - minReturn) / numBins;
+
+    const bins = Array.from({ length: numBins }, (_, i) => ({
+      start: minReturn + i * binWidth,
+      end: minReturn + (i + 1) * binWidth,
+      count: 0,
+    }));
+
+    returnsData.forEach(ret => {
+      const binIndex = Math.min(
+        Math.floor((ret - minReturn) / binWidth),
+        numBins - 1
+      );
+      bins[binIndex].count++;
+    });
+
+    return {
+      title: {
+        text: 'Distribution of Portfolio Returns',
+        subtext: `${returnsData.length.toLocaleString()} simulation results`,
+        left: 'center',
+        textStyle: { color: '#333', fontSize: 16 },
+        subtextStyle: { color: '#666', fontSize: 12 },
+      },
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: any) => {
+          const data = params[0];
+          const binStart = (data.dataIndex * binWidth + minReturn) * 100;
+          const binEnd = ((data.dataIndex + 1) * binWidth + minReturn) * 100;
+          return `Return: ${binStart.toFixed(1)}% to ${binEnd.toFixed(1)}%<br/>Count: ${data.value}`;
+        },
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        top: '15%',
+        containLabel: true,
+      },
+      xAxis: {
+        type: 'category',
+        data: bins.map(
+          (_, i) =>
+            Math.round(((i + 0.5) * binWidth + minReturn) * 100 * 10) / 10
+        ),
+        name: 'Return (%)',
+        nameLocation: 'middle',
+        nameGap: 30,
+        axisLabel: {
+          formatter: '{value}%',
+        },
+      },
+      yAxis: {
+        type: 'value',
+        name: 'Frequency',
+        nameLocation: 'middle',
+        nameGap: 50,
+      },
+      series: [
+        {
+          name: 'Returns',
+          type: 'bar',
+          data: bins.map(bin => bin.count),
+          itemStyle: {
+            color: '#45b7d1',
+          },
+        },
+      ],
+    };
+  };
+
+  const generateIndividualStockChart = () => {
+    if (!results) return {};
+
+    // Scale to 252 trading days
+    const tradingDays = 252;
+    const days = Array.from({ length: tradingDays + 1 }, (_, i) => i);
+    const colors = [
+      '#ff6b6b',
+      '#4ecdc4',
+      '#45b7d1',
+      '#96ceb4',
+      '#feca57',
+      '#ff9ff3',
+      '#54a0ff',
+    ];
+    const tickers = Object.keys(results.individualPaths);
+
+    // Scale individual stock paths to 252 days
+    const scaleStockData = (stockPaths: number[][]) => {
+      if (stockPaths.length === 0) return [];
+      const pathLength = stockPaths[0].length;
+      if (pathLength <= tradingDays) return stockPaths;
+
+      const step = pathLength / tradingDays;
+      return stockPaths.map(path =>
+        Array.from({ length: tradingDays + 1 }, (_, i) => {
+          const index = Math.floor(i * step);
+          return path[Math.min(index, path.length - 1)];
+        })
+      );
+    };
+
+    const series = tickers.map((ticker, index) => ({
+      name: ticker,
+      type: 'line',
+      data: scaleStockData(results.individualPaths[ticker]).map(
+        path => path[path.length - 1]
+      ),
+      lineStyle: {
+        color: colors[index % colors.length],
+        width: 2,
+      },
+      showSymbol: false,
+    }));
+
+    return {
+      title: {
+        text: 'Individual Stock Performance',
+        subtext: 'Final values after 1 year simulation',
+        left: 'center',
+        textStyle: { color: '#333', fontSize: 16 },
+        subtextStyle: { color: '#666', fontSize: 12 },
+      },
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: any) => {
+          let result = `Day ${params[0].axisValue}<br/>`;
+          params.forEach((param: any) => {
+            result += `${param.seriesName}: $${param.value.toLocaleString()}<br/>`;
+          });
+          return result;
+        },
+      },
+      legend: {
+        data: tickers,
+        top: 30,
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        top: '15%',
+        containLabel: true,
+      },
+      xAxis: {
+        type: 'category',
+        data: days,
+        name: 'Days',
+        nameLocation: 'middle',
+        nameGap: 30,
+      },
+      yAxis: {
+        type: 'value',
+        name: 'Stock Value ($)',
+        nameLocation: 'middle',
+        nameGap: 50,
+        axisLabel: {
+          formatter: '${value}',
+        },
+      },
+      series: series,
+    };
   };
 
   if (investments.length === 0) {
@@ -394,6 +681,47 @@ export default function PortfolioSimulation({
                   )
                 )}
               </div>
+            </div>
+
+            {/* Charts Section */}
+            <div className='space-y-6'>
+              <h3 className='font-semibold text-foreground flex items-center space-x-2'>
+                <BarChart3 className='w-5 h-5 text-primary' />
+                <span>Visualization</span>
+              </h3>
+
+              {/* Portfolio Value Simulation Chart */}
+              <Card className='bg-muted/30 border-border'>
+                <CardContent className='p-6'>
+                  <ReactECharts
+                    option={generatePortfolioChart()}
+                    style={{ height: '400px', width: '100%' }}
+                    opts={{ renderer: 'canvas' }}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Returns Distribution Chart */}
+              <Card className='bg-muted/30 border-border'>
+                <CardContent className='p-6'>
+                  <ReactECharts
+                    option={generateReturnsChart()}
+                    style={{ height: '400px', width: '100%' }}
+                    opts={{ renderer: 'canvas' }}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Individual Stock Performance Chart */}
+              <Card className='bg-muted/30 border-border'>
+                <CardContent className='p-6'>
+                  <ReactECharts
+                    option={generateIndividualStockChart()}
+                    style={{ height: '400px', width: '100%' }}
+                    opts={{ renderer: 'canvas' }}
+                  />
+                </CardContent>
+              </Card>
             </div>
 
             {/* Summary */}
