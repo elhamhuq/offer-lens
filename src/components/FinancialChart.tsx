@@ -39,6 +39,8 @@ import {
   Zap,
 } from 'lucide-react';
 import { useJobOfferProjections } from '@/hooks/useJobOfferProjections';
+import { generateInvestmentSuggestions } from '@/lib/investmentSuggestions'
+
 
 interface FinancialChartProps {
   title?: string;
@@ -63,31 +65,33 @@ interface TooltipData {
   visible: boolean;
 }
 
-const generateProjections = (
-  monthlyInvestment: number,
-  annualReturn: number,
-  salaryGrowthRate: number
-) => {
-  const projections = [];
-  let totalContributions = 0;
-  let totalValue = 0;
-
+const generateProjections = (monthlyInvestment: number, annualReturn: number, salaryGrowthRate: number) => {
+  const projections = []
+  let totalContributions = 0
+  let totalValue = 0
+  
   for (let year = 1; year <= 30; year++) {
-    const yearlyContribution =
-      monthlyInvestment * 12 * Math.pow(1 + salaryGrowthRate, year - 1);
-    totalContributions += yearlyContribution;
-    totalValue = (totalValue + yearlyContribution) * (1 + annualReturn);
-
+    // Calculate this year's contribution (with salary growth)
+    const yearlyContribution = monthlyInvestment * 12 * Math.pow(1 + salaryGrowthRate, year - 1)
+    
+    // Add to total contributions
+    totalContributions += yearlyContribution
+    
+    // Apply growth to existing portfolio value first
+    totalValue = totalValue * (1 + annualReturn)
+    
+    // Then add new contributions (they don't grow in their first year)
+    totalValue += yearlyContribution
+    
     projections.push({
       year,
       contributions: totalContributions,
       growth: totalValue - totalContributions,
       totalValue: totalValue,
-    });
+    })
   }
-
-  return projections;
-};
+  return projections
+}
 
 export default function FinancialChart({
   title,
@@ -116,8 +120,9 @@ export default function FinancialChart({
   const hookProjections = hookData.projections;
   const assumptions = hookData.assumptions;
   const setAssumptions = hookData.setAssumptions;
-  const suggestions = hookData.suggestions;
-  const loadingSuggestions = hookData.loadingSuggestions;
+  const [suggestions, setSuggestions] = useState<any[]>([])
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+
   const loading = hookData.loading;
   const error = hookData.error;
   const hasOffers = scenarios ? scenarios.length > 0 : hookData.hasOffers;
@@ -127,6 +132,38 @@ export default function FinancialChart({
   const [projections, setProjections] = useState(() =>
     generateProjections(1500, 0.082, 0.035)
   );
+
+
+useEffect(() => {
+  if (selectedOffer) {
+    setLoadingSuggestions(true)
+    
+    // Create financial analysis object for your function
+    const financialAnalysisData = {
+      monthlyBreakdown: {
+        grossIncome: Math.round(selectedOffer.baseSalary / 12),
+        estimatedTaxes: Math.round((selectedOffer.baseSalary / 12) * 0.25),
+        netIncome: Math.round((selectedOffer.baseSalary * 0.75) / 12),
+        savingsPotential: selectedOffer.savingsPotential || Math.round((selectedOffer.baseSalary * 0.4) / 12)
+      }
+    }
+
+    // Call your actual function
+    generateInvestmentSuggestions(financialAnalysisData, selectedOffer.id)
+      .then((generatedSuggestions) => {
+        console.log('✅ Generated suggestions for', selectedOffer.company, ':', generatedSuggestions)
+        setSuggestions(generatedSuggestions)
+        setLoadingSuggestions(false)
+      })
+      .catch((error) => {
+        console.error('❌ Suggestions error:', error)
+        setSuggestions([])
+        setLoadingSuggestions(false)
+      })
+  } else {
+    setSuggestions([])
+  }
+}, [selectedOffer?.id, selectedOffer?.baseSalary])
 
   useEffect(() => {
     if (hookProjections.length > 0) {
@@ -358,29 +395,28 @@ export default function FinancialChart({
     return lines;
   };
 
-  const handleMouseMove = (
-    event: React.MouseEvent<SVGSVGElement>,
-    timeframe: number,
-    valueType: 'totalValue' | 'contributions' | 'growth'
-  ) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const yearIndex = Math.round((x / 100) * (timeframe - 1));
-    const year = Math.min(yearIndex, timeframe - 1);
+const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>, timeframe: number, valueType: 'totalValue' | 'contributions' | 'growth') => {
+  const rect = event.currentTarget.getBoundingClientRect()
+  const x = ((event.clientX - rect.left) / rect.width) * 100
+  const yearIndex = Math.round((x / 100) * (timeframe - 1))
+  const year = Math.min(yearIndex, timeframe - 1)
+  
+  const filteredProjections = projections.slice(0, timeframe)
+  const projection = filteredProjections[year]
+  
+  console.log('🖱️ Mouse move:', { yearIndex, year, value: projection?.[valueType] }) // Debug log
+  
+  if (projection) {
+    setTooltip({
+      x: event.clientX,
+      y: event.clientY - 10,
+      value: projection[valueType],
+      year: year + 1,
+      visible: true,
+    })
+  }
+}
 
-    const filteredProjections = projections.slice(0, timeframe);
-    const projection = filteredProjections[year];
-
-    if (projection) {
-      setTooltip({
-        x: event.clientX,
-        y: event.clientY - 10,
-        value: projection[valueType],
-        year: year + 1,
-        visible: true,
-      });
-    }
-  };
 
   const handleMouseLeave = () => {
     setTooltip(prev => ({ ...prev, visible: false }));
@@ -1288,7 +1324,8 @@ export default function FinancialChart({
                             </div>
                           </div>
                           <div className='text-lg font-bold text-primary'>
-                            ${suggestion.monthlyAmount}/month
+                              ${suggestion.monthlyAmount?.toLocaleString()}/month
+
                           </div>
                         </div>
                       </Button>
@@ -1339,65 +1376,77 @@ export default function FinancialChart({
 
       {/* Quick Compare Section - Now using real data */}
       {jobOffers.length > 1 && (
-        <Card className='bg-gradient-to-br from-card to-card/95 border-border/60 shadow-lg'>
-          <CardHeader className='border-b border-border/50'>
-            <CardTitle className='flex items-center space-x-3'>
-              <div className='p-2 bg-primary/10 rounded-lg'>
-                <TrendingUp className='w-5 h-5 text-primary' />
+  <Card className='bg-gradient-to-br from-card to-card/95 border-border/60 shadow-lg'>
+    <CardHeader className='border-b border-border/50'>
+      <CardTitle className='flex items-center space-x-3'>
+        <div className='p-2 bg-primary/10 rounded-lg'>
+          <TrendingUp className='w-5 h-5 text-primary' />
+        </div>
+        <span>Quick Compare</span>
+      </CardTitle>
+      <CardDescription className='text-base'>
+        30-year projections using moderate investment suggestions (60% of savings potential)
+      </CardDescription>
+    </CardHeader>
+    <CardContent className='pt-6'>
+      <div className='space-y-3'>
+        {jobOffers.map(offer => {
+          // ✅ FIXED calculation for ALL companies (never changes)
+          const suggestedAmount = Math.round(offer.savingsPotential * 0.6) // Always 60% of savings potential
+          const fixedReturn = 0.082 // Always 8.2%
+          const fixedSalaryGrowth = 0.03 // Always 3%
+          
+          // Static calculation that never changes
+          let thirtyYearValue = 0
+          for (let year = 1; year <= 30; year++) {
+            const yearlyContribution = suggestedAmount * 12 * Math.pow(1 + fixedSalaryGrowth, year - 1)
+            thirtyYearValue = thirtyYearValue * (1 + fixedReturn)
+            thirtyYearValue += yearlyContribution
+          }
+          
+          return (
+            <div
+              key={offer.id}
+              className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all duration-300 hover:scale-1.01 ${
+                selectedOffer?.id === offer.id
+                  ? 'bg-gradient-to-r from-primary/10 to-primary/5 border-primary/30 shadow-lg shadow-primary/10'
+                  : 'bg-gradient-to-r from-muted/30 to-muted/50 hover:from-muted/40 hover:to-muted/60 border-border/50'
+              }`}
+              onClick={() => selectOffer(offer)}
+            >
+              <div className='flex items-center space-x-4'>
+                <div className='p-2 bg-primary/10 rounded-lg'>
+                  <Building2 className='w-5 h-5 text-primary' />
+                </div>
+                <div>
+                  <p className='font-semibold text-lg'>{offer.company}</p>
+                  <p className='text-sm text-muted-foreground'>{offer.position}</p>
+                  <p className='text-xs text-muted-foreground'>
+                    ${suggestedAmount.toLocaleString()}/month @ 8.2%
+                  </p>
+                </div>
               </div>
-              <span>Quick Compare</span>
-            </CardTitle>
-            <CardDescription className='text-base'>
-              30-year projections across all your job offers
-            </CardDescription>
-          </CardHeader>
-          <CardContent className='pt-6'>
-            <div className='space-y-3'>
-              {jobOffers.map(offer => {
-                // Quick calculation for comparison
-                const monthlyInvest = Math.round(offer.savingsPotential * 0.6);
-                const annualInvest = monthlyInvest * 12;
-                let totalValue = 0;
-                for (let year = 1; year <= 30; year++) {
-                  totalValue = (totalValue + annualInvest) * 1.082;
-                }
-
-                return (
-                  <div
-                    key={offer.id}
-                    className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all duration-300 hover:scale-[1.01] ${
-                      selectedOffer?.id === offer.id
-                        ? 'bg-gradient-to-r from-primary/10 to-primary/5 border-primary/30 shadow-lg shadow-primary/10'
-                        : 'bg-gradient-to-r from-muted/30 to-muted/50 hover:from-muted/40 hover:to-muted/60 border-border/50'
-                    }`}
-                    onClick={() => selectOffer(offer)}
-                  >
-                    <div className='flex items-center space-x-4'>
-                      <div className='p-2 bg-primary/10 rounded-lg'>
-                        <Building2 className='w-5 h-5 text-primary' />
-                      </div>
-                      <div>
-                        <p className='font-semibold text-lg'>{offer.company}</p>
-                        <p className='text-sm text-muted-foreground'>
-                          {offer.position}
-                        </p>
-                      </div>
-                    </div>
-                    <div className='text-right'>
-                      <p className='font-bold text-2xl text-primary'>
-                        ${(totalValue / 1000000).toFixed(1)}M
-                      </p>
-                      <p className='text-sm text-muted-foreground'>
-                        30-year projection
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
+              <div className='text-right'>
+                <p className='font-bold text-2xl text-primary'>
+                  ${(thirtyYearValue / 1000000).toFixed(1)}M
+                </p>
+                <p className='text-sm text-muted-foreground'>30-year projection</p>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )
+        })}
+      </div>
+      
+      <div className='mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
+        <p className='text-xs text-blue-700'>
+          💡 These values use fixed assumptions for fair comparison. 
+          Customize your investment strategy in the strategy customizer above.
+        </p>
+      </div>
+    </CardContent>
+  </Card>
+)}
+
 
       {tooltip.visible && (
         <div

@@ -1,5 +1,5 @@
 // utils/investmentSuggestions.ts
-import { suggestionsCache } from './suggestionsCache'
+//import { suggestionsCache } from './suggestionsCache'
 
 export interface InvestmentSuggestion {
   investmentRate: number
@@ -13,11 +13,11 @@ export async function generateInvestmentSuggestions(
   offerId: string
 ): Promise<InvestmentSuggestion[]> {
   // Try to load from cache first
-  const cachedSuggestions = suggestionsCache.load(offerId, financialAnalysis)
-  if (cachedSuggestions) {
-    console.log('Using cached Gemini suggestions for offer:', offerId)
-    return cachedSuggestions
-  }
+  // const cachedSuggestions = suggestionsCache.load(offerId, financialAnalysis)
+  // if (cachedSuggestions) {
+  //   console.log('Using cached Gemini suggestions for offer:', offerId)
+  //   return cachedSuggestions
+  // }
 
   try {
     console.log('Fetching new Gemini suggestions for offer:', offerId)
@@ -36,7 +36,7 @@ export async function generateInvestmentSuggestions(
     const suggestions = await response.json()
     
     // Cache the suggestions
-    suggestionsCache.save(offerId, suggestions, financialAnalysis)
+    //suggestionsCache.save(offerId, suggestions, financialAnalysis)
     
     return suggestions
   } catch (error) {
@@ -45,7 +45,7 @@ export async function generateInvestmentSuggestions(
     const fallbackSuggestions = getDefaultSuggestions(financialAnalysis)
     
     // Cache fallback suggestions too
-    suggestionsCache.save(offerId, fallbackSuggestions, financialAnalysis)
+    //suggestionsCache.save(offerId, fallbackSuggestions, financialAnalysis)
     
     return fallbackSuggestions
   }

@@ -71,20 +71,20 @@ Return ONLY a valid JSON array with this exact format:
 [
   {
     "investmentRate": 0.15,
-    "monthlyAmount": 1200,
-    "reasoning": "Conservative approach focusing on capital preservation while building wealth slowly with minimal risk.",
+    "monthlyAmount": This must be calculated based on the current scenarios saving amounts and budget,
+    "reasoning": "{This must be based on your own judgement for this relevant risklevel, hard limit 200 characters. Suggest 1-3 Investment Companies (Think AAPL, MSFT, Tesla and ETC)}.",
     "riskLevel": "Conservative"
   },
   {
     "investmentRate": 0.20,
-    "monthlyAmount": 1800,
-    "reasoning": "Balanced approach that provides good growth potential while maintaining financial flexibility.",
+    "monthlyAmount": This must be calculated based on the current scenarios saving amounts and budget,
+    "reasoning": "{This must be based on your own judgement for this relevant risklevel, hard limit 200 characters. Suggest 1-3 Investment Companies (Think AAPL, MSFT, Tesla and ETC)}.",
     "riskLevel": "Moderate"
   },
   {
     "investmentRate": 0.25,
-    "monthlyAmount": 2400,
-    "reasoning": "Aggressive approach to maximize long-term wealth, suitable for those comfortable with market volatility.",
+    "monthlyAmount": This must be calculated based on the current scenarios saving amounts and budget,
+    "reasoning": "{This must be based on your own judgement for this relevant risklevel, hard limit 200 characters. Suggest 1-3 Investment Companies (Think AAPL, MSFT, Tesla and ETC)}.",
     "riskLevel": "Aggressive"
   }
 ]
