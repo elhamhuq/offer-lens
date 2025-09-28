@@ -2,7 +2,7 @@ import { useStore } from "../store/useStore"
 import { supabase } from "@/lib/supabase"
 
 export const useAuth = () => {
-  const { setAuthenticated, setUser, setAuthToken, clearAuth } = useStore()
+  const { setAuthenticated, setUser, setAuthToken, clearAuth, loadScenarios } = useStore()
 
   const login = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -22,6 +22,8 @@ export const useAuth = () => {
         email: data.user.email!,
         name: data.user.user_metadata.name || data.user.email!,
       })
+      // Load scenarios after successful login
+      await loadScenarios()
       return { success: true }
     }
     
@@ -54,6 +56,8 @@ export const useAuth = () => {
             email: data.user.email!,
             name: data.user.user_metadata.name || data.user.email!,
         })
+        // Load scenarios after successful signup
+        await loadScenarios()
         return { success: true }
     }
 

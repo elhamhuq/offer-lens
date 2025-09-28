@@ -42,6 +42,9 @@ export default function DashboardPage() {
   const [jobOffer, setJobOffer] = useState<Partial<JobOffer>>({});
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState(4000);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const { createScenario, deleteScenario } = useScenario();
   const { scenarios, addScenario, currentScenario, setCurrentScenario } =
@@ -63,19 +66,40 @@ export default function DashboardPage() {
     setInvestments(newInvestments);
   };
 
-  const handleSaveScenario = () => {
+  const handleSaveScenario = async () => {
     if (scenarioName && jobOffer.title && investments.length > 0) {
-      const newScenario = createScenario(
-        scenarioName,
-        jobOffer as JobOffer,
-        investments
-      );
-      // Reset form and switch to scenarios tab
-      setScenarioName('');
-      setCurrentStep(1);
-      setJobOffer({});
-      setInvestments([]);
-      setActiveTab('scenarios');
+      setIsSaving(true);
+      setSaveError(null);
+
+      try {
+        const newScenario = await createScenario(
+          scenarioName,
+          jobOffer as JobOffer,
+          investments
+        );
+
+        if (newScenario) {
+          // Show success message
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 3000);
+
+          // Reset form and switch to scenarios tab
+          setScenarioName('');
+          setCurrentStep(1);
+          setJobOffer({});
+          setInvestments([]);
+          setActiveTab('scenarios');
+        } else {
+          setSaveError('Failed to create scenario. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error creating scenario:', error);
+        setSaveError(
+          'An error occurred while saving the scenario. Please try again.'
+        );
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -332,16 +356,31 @@ export default function DashboardPage() {
         <div>
           {/* Save Button */}
           <div className='flex justify-end mb-8'>
-            <Button
-              onClick={handleSaveScenario}
-              disabled={
-                !scenarioName || !jobOffer.title || investments.length === 0
-              }
-              className='bg-primary hover:bg-primary/90'
-            >
-              <Save className='w-4 h-4 mr-2' />
-              Save Scenario
-            </Button>
+            <div className='flex flex-col items-end space-y-2'>
+              {saveError && (
+                <div className='text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md'>
+                  {saveError}
+                </div>
+              )}
+              {saveSuccess && (
+                <div className='text-sm text-green-600 bg-green-50 px-3 py-2 rounded-md'>
+                  Scenario saved successfully!
+                </div>
+              )}
+              <Button
+                onClick={handleSaveScenario}
+                disabled={
+                  !scenarioName ||
+                  !jobOffer.title ||
+                  investments.length === 0 ||
+                  isSaving
+                }
+                className='bg-primary hover:bg-primary/90'
+              >
+                <Save className='w-4 h-4 mr-2' />
+                {isSaving ? 'Saving...' : 'Save Scenario'}
+              </Button>
+            </div>
           </div>
 
           {/* Progress Steps */}

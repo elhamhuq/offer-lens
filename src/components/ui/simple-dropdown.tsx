@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 
 interface DropdownProps {
@@ -19,16 +19,16 @@ export function SimpleDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
+  const handleClickOutside = useCallback((event: MouseEvent) => {
+    if (
+      dropdownRef.current &&
+      !dropdownRef.current.contains(event.target as Node)
+    ) {
+      setIsOpen(false);
     }
+  }, []);
 
+  useEffect(() => {
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
@@ -36,11 +36,15 @@ export function SimpleDropdown({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, handleClickOutside]);
+
+  const handleToggle = useCallback(() => {
+    setIsOpen(prev => !prev);
+  }, []);
 
   return (
     <div className='relative' ref={dropdownRef}>
-      <div onClick={() => setIsOpen(!isOpen)}>{trigger}</div>
+      <div onClick={handleToggle}>{trigger}</div>
 
       {isOpen && (
         <div

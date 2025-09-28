@@ -2,6 +2,35 @@
 export interface Database {
   public: {
     Tables: {
+      scenarios: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          job_offer: any
+          investments: any
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          job_offer: any
+          investments?: any
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          job_offer?: any
+          investments?: any
+          created_at?: string
+          updated_at?: string
+        }
+      }
       document_analysis: {
         Row: {
           id: string

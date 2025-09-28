@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Scenario, Investment, FinancialProjection } from '@/types'
 import { setCookie, getCookie, deleteCookie, isTokenValid } from '@/lib/cookies'
+import { scenariosDb } from '@/lib/database'
 
 interface User {
   id: string
@@ -36,6 +37,7 @@ interface StoreState {
   setAuthToken: (token: string | null) => void
   initializeAuth: () => Promise<void>
   clearAuth: () => void
+  loadScenarios: () => Promise<void>
   
   addScenario: (scenario: Scenario) => void
   updateScenario: (id: string, updates: Partial<Scenario>) => void
@@ -135,6 +137,8 @@ export const useStore = create<StoreState>()(
               authToken: cookieToken,
               isInitialized: true 
             })
+            // Load scenarios after authentication is restored
+            get().loadScenarios()
           } else {
             // No valid token, clear authentication
             deleteCookie('auth-token')
@@ -161,9 +165,35 @@ export const useStore = create<StoreState>()(
         set({ 
           isAuthenticated: false, 
           user: null, 
-          authToken: null 
+          authToken: null,
+          scenarios: []
         })
         deleteCookie('auth-token')
+      },
+      
+      loadScenarios: async () => {
+        const { user, isAuthenticated } = get()
+        if (!isAuthenticated || !user) {
+          return
+        }
+
+        try {
+          const dbScenarios = await scenariosDb.getByUserId(user.id)
+          
+          // Convert database scenarios to local format
+          const scenarios: Scenario[] = dbScenarios.map(dbScenario => ({
+            id: dbScenario.id,
+            name: dbScenario.name,
+            jobOffer: dbScenario.job_offer,
+            investments: dbScenario.investments,
+            createdAt: new Date(dbScenario.created_at),
+            updatedAt: new Date(dbScenario.updated_at),
+          }))
+
+          set({ scenarios })
+        } catch (error) {
+          console.error('Error loading scenarios:', error)
+        }
       },
   
   // Scenario actions

@@ -132,20 +132,8 @@ export default function InvestmentForm({
   const [selectedETF, setSelectedETF] = useState('');
   const [newAmount, setNewAmount] = useState(500);
 
-  useEffect(() => {
-    const total = investments.reduce((sum, inv) => sum + inv.monthlyAmount, 0);
-    if (total > monthlyBudget) {
-      // If total exceeds budget, adjust the last added investment
-      const lastInvestment = investments[investments.length - 1];
-      if (lastInvestment) {
-        const newAmountForLast = Math.max(
-          0,
-          lastInvestment.monthlyAmount - (total - monthlyBudget)
-        );
-        updateInvestmentAmount(lastInvestment.id, newAmountForLast);
-      }
-    }
-  }, [monthlyBudget, investments]);
+  // Removed useEffect that was causing infinite loops
+  // Budget constraints will be handled in the UI instead
 
   const totalMonthlyInvestment = investments.reduce(
     (sum, inv) => sum + inv.monthlyAmount,
