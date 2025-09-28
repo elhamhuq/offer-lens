@@ -28,45 +28,70 @@ export default function AnalysisPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [analysisData, setAnalysisData] = useState<any>(null)
+  const [analysisStatus, setAnalysisStatus] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("results")
 
   useEffect(() => {
     if (analysisId && analysisId !== 'new') {
-      loadAnalysisData()
+      // Immediately check status on load
+      checkAnalysisStatus()
+
+      const poller = setInterval(() => {
+        if (analysisStatus === 'completed' || analysisStatus === 'failed') {
+          clearInterval(poller)
+          return
+        }
+        checkAnalysisStatus()
+      }, 3000)
+
+      return () => clearInterval(poller)
     } else {
       setIsLoading(false)
     }
   }, [analysisId])
 
-  const loadAnalysisData = async () => {
+  useEffect(() => {
+    // When status becomes 'completed', fetch the full results
+    if (analysisStatus === 'completed' && !analysisData) {
+      console.log('🔄 Status is completed, fetching full results')
+      fetchResults()
+    }
+  }, [analysisStatus])
+
+  const fetchResults = async () => {
     try {
       setIsLoading(true)
-      setError(null)
-
       const response = await fetch(`/api/analysis/${analysisId}/results`)
-      
       if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error("Analysis not found")
-        }
-        if (response.status === 202) {
-          // Still processing
-          const statusData = await response.json()
-          setError(statusData.message || "Analysis is still processing")
-          // Poll for updates
-          setTimeout(loadAnalysisData, 3000)
-          return
-        }
-        throw new Error("Failed to load analysis")
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to fetch results')
       }
-
       const data = await response.json()
       setAnalysisData(data)
       setError(null)
     } catch (err) {
-      console.error("Error loading analysis:", err)
-      setError(err instanceof Error ? err.message : "Failed to load analysis")
+      console.error("Error fetching results:", err)
+      setError(err instanceof Error ? err.message : "Failed to load analysis results")
     } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const checkAnalysisStatus = async () => {
+    try {
+      // Don't set loading state here to avoid UI flicker during polling
+      const response = await fetch(`/api/analysis/${analysisId}/status`)
+      const data = await response.json()
+
+      setAnalysisStatus(data.status)
+
+      if (data.status === 'failed') {
+        setError(data.errorMessage || "Analysis failed to process")
+        setIsLoading(false)
+      }
+    } catch (err) {
+      console.error("Error checking status:", err)
+      setError("Failed to get analysis status")
       setIsLoading(false)
     }
   }
@@ -78,7 +103,7 @@ export default function AnalysisPage() {
 
   const handleDataUpdate = async (updatedData: any) => {
     // Reload the analysis data after update
-    await loadAnalysisData()
+    await fetchResults()
   }
 
   const handleExport = async (format: 'json' | 'markdown') => {
@@ -316,6 +341,7 @@ export default function AnalysisPage() {
             analysisId={analysisId}
             companyName={analysisData?.extractedData?.company}
             position={analysisData?.extractedData?.jobTitle}
+            isChatEnabled={analysisStatus === 'completed'}
           />
         </TabsContent>
       </Tabs>
