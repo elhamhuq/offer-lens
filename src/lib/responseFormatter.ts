@@ -131,7 +131,7 @@ export function formatFinancialAnalysis(analysis: FinancialAnalysis): {
       label: 'Savings Rate',
       value: monthlyBudget.savings.percentage,
       trend: (analysis.monthlyBreakdown.savingsPotential || 0) > 
-             (analysis.monthlyBreakdown.netIncome * 0.2) ? 'up' : 'down' as const,
+             (analysis.monthlyBreakdown.netIncome * 0.2) ? 'up' as const : 'down' as const,
     },
     ...analysis.comparisonPoints.map(point => ({
       label: point.factor,
@@ -142,7 +142,7 @@ export function formatFinancialAnalysis(analysis: FinancialAnalysis): {
 
   // Prioritize recommendations
   const formattedRecommendations = analysis.recommendations.map((rec, index) => ({
-    priority: index < 2 ? 'high' : index < 5 ? 'medium' : 'low' as const,
+    priority: index < 2 ? 'high' as const : index < 5 ? 'medium' as const : 'low' as const,
     action: rec,
     impact: index < 2 ? 'Immediate action recommended' : 
             index < 5 ? 'Consider within 30 days' : 

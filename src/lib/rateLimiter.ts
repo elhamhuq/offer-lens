@@ -438,7 +438,8 @@ export class APICallManager {
   getStatus(): Record<string, any> {
     const status: Record<string, any> = {}
     
-    for (const [key, limiter] of this.rateLimiters.entries()) {
+    const entries = Array.from(this.rateLimiters.entries())
+    for (const [key, limiter] of entries) {
       status[key] = limiter.getStatus()
     }
     

@@ -1,177 +1,94 @@
-import { supabase, supabaseAdmin, Database } from './supabase'
+import { supabase, Database } from './supabase'
 
 // Type definitions
-type User = Database['public']['Tables']['users']['Row']
-type UserInsert = Database['public']['Tables']['users']['Insert']
-type UserUpdate = Database['public']['Tables']['users']['Update']
+type DocumentAnalysis = Database['public']['Tables']['document_analysis']['Row']
+type DocumentAnalysisInsert = Database['public']['Tables']['document_analysis']['Insert']
+type DocumentAnalysisUpdate = Database['public']['Tables']['document_analysis']['Update']
 
-type Scenario = Database['public']['Tables']['scenarios']['Row']
-type ScenarioInsert = Database['public']['Tables']['scenarios']['Insert']
-type ScenarioUpdate = Database['public']['Tables']['scenarios']['Update']
+type JobOfferEmbedding = Database['public']['Tables']['job_offer_embeddings']['Row']
+type JobOfferEmbeddingInsert = Database['public']['Tables']['job_offer_embeddings']['Insert']
+type JobOfferEmbeddingUpdate = Database['public']['Tables']['job_offer_embeddings']['Update']
 
-type Run = Database['public']['Tables']['runs']['Row']
-type RunInsert = Database['public']['Tables']['runs']['Insert']
-type RunUpdate = Database['public']['Tables']['runs']['Update']
+type ChatInteraction = Database['public']['Tables']['chat_interactions']['Row']
+type ChatInteractionInsert = Database['public']['Tables']['chat_interactions']['Insert']
+type ChatInteractionUpdate = Database['public']['Tables']['chat_interactions']['Update']
 
-// User CRUD operations
-export const userDb = {
-  // Create a new user
-  async create(userData: UserInsert): Promise<User | null> {
+// Document Analysis CRUD operations
+export const documentAnalysisDb = {
+  // Create a new document analysis
+  async create(analysisData: DocumentAnalysisInsert): Promise<DocumentAnalysis | null> {
     const { data, error } = await supabase
-      .from('users')
-      .insert(userData)
+      .from('document_analysis')
+      .insert(analysisData)
       .select()
       .single()
 
     if (error) {
-      console.error('Error creating user:', error)
+      console.error('Error creating document analysis:', error)
       return null
     }
 
     return data
   },
 
-  // Get user by ID
-  async getById(id: string): Promise<User | null> {
+  // Get document analysis by ID
+  async getById(id: string): Promise<DocumentAnalysis | null> {
     const { data, error } = await supabase
-      .from('users')
+      .from('document_analysis')
       .select('*')
       .eq('id', id)
       .single()
 
     if (error) {
-      console.error('Error fetching user:', error)
+      console.error('Error fetching document analysis:', error)
       return null
     }
 
     return data
   },
 
-  // Get user by email
-  async getByEmail(email: string): Promise<User | null> {
+  // Get document analyses by user ID
+  async getByUserId(userId: string): Promise<DocumentAnalysis[]> {
     const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .single()
-
-    if (error) {
-      console.error('Error fetching user by email:', error)
-      return null
-    }
-
-    return data
-  },
-
-  // Update user
-  async update(id: string, updates: UserUpdate): Promise<User | null> {
-    const { data, error } = await supabase
-      .from('users')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error updating user:', error)
-      return null
-    }
-
-    return data
-  },
-
-  // Delete user
-  async delete(id: string): Promise<boolean> {
-    const { error } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      console.error('Error deleting user:', error)
-      return false
-    }
-
-    return true
-  }
-}
-
-// Scenario CRUD operations
-export const scenarioDb = {
-  // Create a new scenario
-  async create(scenarioData: ScenarioInsert): Promise<Scenario | null> {
-    const { data, error } = await supabase
-      .from('scenarios')
-      .insert(scenarioData)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error creating scenario:', error)
-      return null
-    }
-
-    return data
-  },
-
-  // Get scenario by ID
-  async getById(id: string): Promise<Scenario | null> {
-    const { data, error } = await supabase
-      .from('scenarios')
-      .select('*')
-      .eq('id', id)
-      .single()
-
-    if (error) {
-      console.error('Error fetching scenario:', error)
-      return null
-    }
-
-    return data
-  },
-
-  // Get all scenarios for a user
-  async getByUserId(userId: string): Promise<Scenario[]> {
-    const { data, error } = await supabase
-      .from('scenarios')
+      .from('document_analysis')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching user scenarios:', error)
+      console.error('Error fetching document analyses:', error)
       return []
     }
 
     return data || []
   },
 
-  // Update scenario
-  async update(id: string, updates: ScenarioUpdate): Promise<Scenario | null> {
+  // Update document analysis
+  async update(id: string, updates: DocumentAnalysisUpdate): Promise<DocumentAnalysis | null> {
     const { data, error } = await supabase
-      .from('scenarios')
+      .from('document_analysis')
       .update(updates)
       .eq('id', id)
       .select()
       .single()
 
     if (error) {
-      console.error('Error updating scenario:', error)
+      console.error('Error updating document analysis:', error)
       return null
     }
 
     return data
   },
 
-  // Delete scenario
+  // Delete document analysis
   async delete(id: string): Promise<boolean> {
     const { error } = await supabase
-      .from('scenarios')
+      .from('document_analysis')
       .delete()
       .eq('id', id)
 
     if (error) {
-      console.error('Error deleting scenario:', error)
+      console.error('Error deleting document analysis:', error)
       return false
     }
 
@@ -179,144 +96,37 @@ export const scenarioDb = {
   }
 }
 
-// Run CRUD operations
-export const runDb = {
-  // Create a new run
-  async create(runData: RunInsert): Promise<Run | null> {
+// Chat Interaction CRUD operations
+export const chatInteractionDb = {
+  // Create a new chat interaction
+  async create(interactionData: ChatInteractionInsert): Promise<ChatInteraction | null> {
     const { data, error } = await supabase
-      .from('runs')
-      .insert(runData)
+      .from('chat_interactions')
+      .insert(interactionData)
       .select()
       .single()
 
     if (error) {
-      console.error('Error creating run:', error)
+      console.error('Error creating chat interaction:', error)
       return null
     }
 
     return data
   },
 
-  // Get run by ID
-  async getById(id: string): Promise<Run | null> {
+  // Get chat interactions by analysis ID
+  async getByAnalysisId(analysisId: string): Promise<ChatInteraction[]> {
     const { data, error } = await supabase
-      .from('runs')
+      .from('chat_interactions')
       .select('*')
-      .eq('id', id)
-      .single()
+      .eq('analysis_id', analysisId)
+      .order('created_at', { ascending: true })
 
     if (error) {
-      console.error('Error fetching run:', error)
-      return null
-    }
-
-    return data
-  },
-
-  // Get all runs for a scenario
-  async getByScenarioId(scenarioId: string): Promise<Run[]> {
-    const { data, error } = await supabase
-      .from('runs')
-      .select('*')
-      .eq('scenario_id', scenarioId)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching scenario runs:', error)
-      return []
-    }
-
-    return data || []
-  },
-
-  // Update run
-  async update(id: string, updates: RunUpdate): Promise<Run | null> {
-    const { data, error } = await supabase
-      .from('runs')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error updating run:', error)
-      return null
-    }
-
-    return data
-  },
-
-  // Delete run
-  async delete(id: string): Promise<boolean> {
-    const { error } = await supabase
-      .from('runs')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      console.error('Error deleting run:', error)
-      return false
-    }
-
-    return true
-  }
-}
-
-// Admin operations (bypass RLS)
-export const adminDb = {
-  // Get all users (admin only)
-  async getAllUsers(): Promise<User[]> {
-    const { data, error } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching all users:', error)
-      return []
-    }
-
-    return data || []
-  },
-
-  // Get all scenarios (admin only)
-  async getAllScenarios(): Promise<Scenario[]> {
-    const { data, error } = await supabaseAdmin
-      .from('scenarios')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching all scenarios:', error)
-      return []
-    }
-
-    return data || []
-  },
-
-  // Get all runs (admin only)
-  async getAllRuns(): Promise<Run[]> {
-    const { data, error } = await supabaseAdmin
-      .from('runs')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching all runs:', error)
+      console.error('Error fetching chat interactions:', error)
       return []
     }
 
     return data || []
   }
-}
-
-// Helper function to get current user from session
-export async function getCurrentUser() {
-  const { data: { user }, error } = await supabase.auth.getUser()
-  
-  if (error || !user) {
-    return null
-  }
-
-  return userDb.getByEmail(user.email!)
 }

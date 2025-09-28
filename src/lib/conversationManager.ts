@@ -385,7 +385,8 @@ ${context.financialAnalysis.summary}`)
     const now = Date.now()
     let cleaned = 0
 
-    for (const [sessionId, context] of this.contexts.entries()) {
+    const entries = Array.from(this.contexts.entries())
+    for (const [sessionId, context] of entries) {
       if (now - context.lastActivity.getTime() > this.contextTimeout) {
         this.contexts.delete(sessionId)
         cleaned++
@@ -442,10 +443,12 @@ ${context.financialAnalysis.summary}`)
     const topicCounts = new Map<string, number>()
     let totalMessages = 0
 
-    for (const context of this.contexts.values()) {
+    const contexts = Array.from(this.contexts.values())
+    for (const context of contexts) {
       totalMessages += context.messages.length
       
-      for (const topic of context.topics) {
+      const topics = Array.from(context.topics)
+      for (const topic of topics) {
         topicCounts.set(topic, (topicCounts.get(topic) || 0) + 1)
       }
     }
