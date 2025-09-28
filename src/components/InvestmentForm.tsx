@@ -25,10 +25,6 @@ import {
   DollarSign,
   Target,
   PieChart,
-  Search,
-  CheckCircle,
-  XCircle,
-  Loader2,
 } from 'lucide-react';
 import type { Investment } from '@/types';
 
@@ -69,93 +65,6 @@ export default function InvestmentForm({
 
   const [tickerInput, setTickerInput] = useState('');
   const [newAmount, setNewAmount] = useState(500);
-  const [isValidating, setIsValidating] = useState(false);
-  const [tickerValidation, setTickerValidation] = useState<{
-    isValid: boolean;
-    stockInfo?: {
-      name: string;
-      price: number;
-      marketCap?: string;
-      sector?: string;
-    };
-    error?: string;
-  }>({ isValid: false });
-
-  // Stock ticker validation function
-  const validateStockTicker = async (ticker: string) => {
-    if (!ticker || ticker.length < 1) {
-      setTickerValidation({ isValid: false });
-      return;
-    }
-
-    setIsValidating(true);
-    setTickerValidation({ isValid: false });
-
-    try {
-      const response = await fetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}`
-      );
-
-      if (!response.ok) {
-        throw new Error('Stock not found');
-      }
-
-      const data = await response.json();
-
-      if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
-        throw new Error('Invalid ticker symbol');
-      }
-
-      const result = data.chart.result[0];
-      const meta = result.meta;
-      const currentPrice = meta.regularMarketPrice;
-
-      if (!currentPrice || currentPrice <= 0) {
-        throw new Error('No current price available');
-      }
-
-      setTickerValidation({
-        isValid: true,
-        stockInfo: {
-          name: meta.longName || meta.shortName || ticker.toUpperCase(),
-          price: currentPrice,
-          marketCap: meta.marketCap
-            ? formatMarketCap(meta.marketCap)
-            : undefined,
-          sector: meta.sector || undefined,
-        },
-      });
-    } catch (error) {
-      setTickerValidation({
-        isValid: false,
-        error:
-          error instanceof Error ? error.message : 'Failed to validate ticker',
-      });
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
-  // Helper function to format market cap
-  const formatMarketCap = (marketCap: number): string => {
-    if (marketCap >= 1e12) return `$${(marketCap / 1e12).toFixed(2)}T`;
-    if (marketCap >= 1e9) return `$${(marketCap / 1e9).toFixed(2)}B`;
-    if (marketCap >= 1e6) return `$${(marketCap / 1e6).toFixed(2)}M`;
-    return `$${marketCap.toLocaleString()}`;
-  };
-
-  // Debounced validation effect
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (tickerInput.trim()) {
-        validateStockTicker(tickerInput.trim());
-      } else {
-        setTickerValidation({ isValid: false });
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [tickerInput]);
 
   const totalMonthlyInvestment = investments.reduce(
     (sum, inv) => sum + inv.monthlyAmount,
@@ -166,11 +75,11 @@ export default function InvestmentForm({
     monthlyBudget > 0 ? (totalMonthlyInvestment / monthlyBudget) * 100 : 0;
 
   const addInvestment = () => {
-    if (!tickerValidation.isValid || !tickerValidation.stockInfo) return;
+    if (!tickerInput.trim() || newAmount <= 0) return;
 
     const newInvestment: Investment = {
       id: Date.now().toString(),
-      name: tickerValidation.stockInfo.name,
+      name: tickerInput.toUpperCase(), // Use ticker as name initially
       monthlyAmount: newAmount,
       etfTicker: tickerInput.toUpperCase(), // Reusing this field for stock ticker
       riskLevel: 'medium', // Default to medium risk for individual stocks
@@ -183,7 +92,6 @@ export default function InvestmentForm({
     // Reset form
     setTickerInput('');
     setNewAmount(500);
-    setTickerValidation({ isValid: false });
   };
 
   const removeInvestment = (id: string) => {
@@ -400,43 +308,12 @@ export default function InvestmentForm({
             <div className='grid md:grid-cols-2 gap-4'>
               <div className='space-y-2'>
                 <Label>Stock Ticker Symbol</Label>
-                <div className='relative'>
-                  <Input
-                    type='text'
-                    value={tickerInput}
-                    onChange={e => setTickerInput(e.target.value.toUpperCase())}
-                    placeholder='Enter ticker (e.g., AAPL, MSFT, TSLA)'
-                    className='pr-10'
-                  />
-                  <div className='absolute right-3 top-1/2 transform -translate-y-1/2'>
-                    {isValidating ? (
-                      <Loader2 className='w-4 h-4 animate-spin text-muted-foreground' />
-                    ) : tickerValidation.isValid ? (
-                      <CheckCircle className='w-4 h-4 text-green-500' />
-                    ) : tickerInput &&
-                      !tickerValidation.isValid &&
-                      tickerValidation.error ? (
-                      <XCircle className='w-4 h-4 text-red-500' />
-                    ) : (
-                      <Search className='w-4 h-4 text-muted-foreground' />
-                    )}
-                  </div>
-                </div>
-                {tickerInput && !isValidating && (
-                  <div className='text-xs'>
-                    {tickerValidation.isValid ? (
-                      <span className='text-green-600'>✓ Valid ticker</span>
-                    ) : tickerValidation.error ? (
-                      <span className='text-red-600'>
-                        ✗ {tickerValidation.error}
-                      </span>
-                    ) : (
-                      <span className='text-muted-foreground'>
-                        Checking ticker...
-                      </span>
-                    )}
-                  </div>
-                )}
+                <Input
+                  type='text'
+                  value={tickerInput}
+                  onChange={e => setTickerInput(e.target.value.toUpperCase())}
+                  placeholder='Enter ticker (e.g., AAPL, MSFT, TSLA)'
+                />
               </div>
 
               <div className='space-y-2'>
@@ -453,56 +330,10 @@ export default function InvestmentForm({
               </div>
             </div>
 
-            {tickerValidation.isValid && tickerValidation.stockInfo && (
-              <div className='p-3 bg-muted/30 rounded-lg'>
-                <div className='space-y-2'>
-                  <div className='flex items-center justify-between'>
-                    <span className='font-medium text-foreground'>
-                      {tickerValidation.stockInfo.name}
-                    </span>
-                    <Badge
-                      variant='secondary'
-                      className='bg-accent/10 text-accent'
-                    >
-                      Individual Stock
-                    </Badge>
-                  </div>
-                  <div className='grid grid-cols-2 gap-4 text-sm'>
-                    <div>
-                      <span className='text-muted-foreground'>
-                        Current Price:
-                      </span>
-                      <span className='ml-1 text-foreground font-medium'>
-                        ${tickerValidation.stockInfo.price.toFixed(2)}
-                      </span>
-                    </div>
-                    {tickerValidation.stockInfo.marketCap && (
-                      <div>
-                        <span className='text-muted-foreground'>
-                          Market Cap:
-                        </span>
-                        <span className='ml-1 text-foreground'>
-                          {tickerValidation.stockInfo.marketCap}
-                        </span>
-                      </div>
-                    )}
-                    {tickerValidation.stockInfo.sector && (
-                      <div className='col-span-2'>
-                        <span className='text-muted-foreground'>Sector:</span>
-                        <span className='ml-1 text-foreground'>
-                          {tickerValidation.stockInfo.sector}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
             <Button
               onClick={addInvestment}
               disabled={
-                !tickerValidation.isValid ||
+                !tickerInput.trim() ||
                 newAmount <= 0 ||
                 newAmount > remainingBudget
               }

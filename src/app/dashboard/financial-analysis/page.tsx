@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -14,7 +14,13 @@ import { useStore } from '@/store/useStore';
 import FinancialChart from '@/components/FinancialChart';
 
 export default function FinancialAnalysisPage() {
-  const { scenarios } = useStore();
+  const { scenarios, loadScenarios, isAuthenticated } = useStore();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadScenarios();
+    }
+  }, [isAuthenticated, loadScenarios]);
 
   return (
     <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
@@ -47,55 +53,7 @@ export default function FinancialAnalysisPage() {
       ) : (
         <div className='space-y-8'>
           {/* Financial Chart */}
-          <FinancialChart />
-
-          {/* Scenario Comparison */}
-          {scenarios.length > 1 && (
-            <Card className='bg-card border-border'>
-              <CardHeader>
-                <CardTitle>Scenario Comparison</CardTitle>
-                <CardDescription>
-                  Compare the financial projections across your scenarios
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className='space-y-4'>
-                  {scenarios.map(scenario => {
-                    const monthlyInvestment = scenario.investments.reduce(
-                      (sum, inv) => sum + inv.monthlyAmount,
-                      0
-                    );
-                    const projectedValue = monthlyInvestment * 12 * 10 * 1.082;
-
-                    return (
-                      <div
-                        key={scenario.id}
-                        className='flex items-center justify-between p-4 rounded-lg border border-border'
-                      >
-                        <div>
-                          <h4 className='font-medium text-foreground'>
-                            {scenario.name}
-                          </h4>
-                          <p className='text-sm text-muted-foreground'>
-                            ${scenario.jobOffer.salary.toLocaleString()} •{' '}
-                            {scenario.jobOffer.company}
-                          </p>
-                        </div>
-                        <div className='text-right'>
-                          <p className='font-medium text-foreground'>
-                            ${projectedValue.toLocaleString()}
-                          </p>
-                          <p className='text-sm text-muted-foreground'>
-                            ${monthlyInvestment.toLocaleString()}/month
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <FinancialChart scenarios={scenarios} />
         </div>
       )}
     </div>

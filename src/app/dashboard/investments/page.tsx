@@ -28,10 +28,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import InvestmentForm from '@/components/InvestmentForm';
-import FinancialChart from '@/components/FinancialChart';
 import PortfolioSimulation from '@/components/PortfolioSimulation';
 import type { Investment } from '@/types';
 import { useScenario } from '@/hooks/useScenario';
+import { usePortfolio } from '@/hooks/usePortfolio';
 import { SimpleDropdown, DropdownItem } from '@/components/ui/simple-dropdown';
 
 export default function InvestmentsPage() {
@@ -43,6 +43,9 @@ export default function InvestmentsPage() {
 
   // Get scenarios from the hook
   const { scenarios, currentScenario, setCurrentScenario } = useScenario();
+
+  // Get portfolio operations
+  const { createPortfolio, isLoading: isSavingPortfolio } = usePortfolio();
 
   // Load scenario data when currentScenario changes
   React.useEffect(() => {
@@ -79,9 +82,80 @@ export default function InvestmentsPage() {
     setInvestments(newInvestments);
   };
 
-  const savePortfolio = () => {
-    // Mock save functionality
-    console.log('Saving portfolio:', investments);
+  const savePortfolio = async () => {
+    if (investments.length === 0) {
+      alert('Please add some investments before saving the portfolio.');
+      return;
+    }
+
+    try {
+      // Convert investments to portfolio data structure
+      const portfolioData = {
+        name: `Portfolio - ${new Date().toLocaleDateString()}`,
+        description: `Portfolio created from ${currentScenario?.name || 'Investment Strategy'} scenario`,
+        portfolio_data: {
+          stocks: {
+            percentage: 100, // Assume all investments are stocks for now
+            individual_stocks: investments.map(inv => ({
+              symbol: inv.etfTicker,
+              name: inv.name,
+              percentage: (inv.monthlyAmount / currentInvestments) * 100,
+              shares: 0, // Will be calculated by the simulation
+              cost_basis: inv.monthlyAmount * 12, // Annual investment
+            })),
+          },
+          total_value: currentInvestments * 12, // Annual total
+          target_allocation: true,
+          rebalancing_frequency: 'annually' as const,
+        },
+        risk_tolerance: 'moderate' as const,
+        investment_horizon:
+          timeHorizon === '10'
+            ? 'short'
+            : timeHorizon === '20'
+              ? 'medium'
+              : ('long' as const),
+      };
+
+      const portfolio = await createPortfolio(portfolioData);
+
+      if (portfolio) {
+        // Link portfolio to current scenario if one is selected
+        if (currentScenario) {
+          try {
+            const response = await fetch(
+              `/api/scenarios/${currentScenario.id}`,
+              {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  portfolio_id: portfolio.id,
+                }),
+              }
+            );
+
+            if (response.ok) {
+              console.log(
+                'Portfolio linked to scenario:',
+                currentScenario.name
+              );
+            }
+          } catch (error) {
+            console.error('Error linking portfolio to scenario:', error);
+          }
+        }
+
+        alert('Portfolio saved successfully!');
+        console.log('Portfolio created:', portfolio);
+      } else {
+        alert('Failed to save portfolio. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving portfolio:', error);
+      alert('Failed to save portfolio. Please try again.');
+    }
   };
 
   return (
@@ -140,10 +214,11 @@ export default function InvestmentsPage() {
           )}
           <Button
             onClick={savePortfolio}
-            className='bg-primary hover:bg-primary/90'
+            disabled={isSavingPortfolio || investments.length === 0}
+            className='bg-primary hover:bg-primary/90 disabled:opacity-50'
           >
             <Save className='w-4 h-4 mr-2' />
-            Save Portfolio
+            {isSavingPortfolio ? 'Saving...' : 'Save Portfolio'}
           </Button>
         </div>
       </div>
@@ -431,16 +506,6 @@ export default function InvestmentsPage() {
         {investments.length > 0 && (
           <div className='mt-8'>
             <PortfolioSimulation investments={investments} />
-          </div>
-        )}
-
-        {/* Financial Projection Chart */}
-        {currentInvestments > 0 && (
-          <div className='mt-8'>
-            <FinancialChart
-              title='Investment Projection'
-              description={`Your portfolio growth over ${timeHorizon} years`}
-            />
           </div>
         )}
       </div>

@@ -3,22 +3,20 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 import type { Database } from '@/lib/supabase'
-import type { UpdatePortfolioRequest } from '@/types/portfolio'
 
 /**
- * Schema for portfolio updates
+ * Schema for scenario updates
  */
-const updatePortfolioSchema = z.object({
+const updateScenarioSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  description: z.string().optional(),
-  portfolio_data: z.object({}).passthrough().optional(),
-  risk_tolerance: z.enum(['conservative', 'moderate', 'aggressive']).optional(),
-  investment_horizon: z.enum(['short', 'medium', 'long']).optional(),
+  job_offer: z.object({}).passthrough().optional(),
+  investments: z.array(z.object({})).optional(),
+  portfolio_id: z.string().uuid().optional(),
 })
 
 /**
- * GET /api/portfolios/[id]
- * Retrieve a specific portfolio by ID
+ * GET /api/scenarios/[id]
+ * Retrieve a specific scenario by ID
  */
 export async function GET(
   request: NextRequest,
@@ -36,31 +34,31 @@ export async function GET(
       )
     }
 
-    const { data: portfolio, error } = await supabase
-      .from('portfolios')
+    const { data: scenario, error } = await supabase
+      .from('scenarios')
       .select('*')
       .eq('id', params.id)
       .eq('user_id', user.id)
       .single()
 
     if (error) {
-      console.error('❌ Portfolio fetch error:', error)
+      console.error('❌ Scenario fetch error:', error)
       return NextResponse.json(
-        { error: 'Portfolio not found' },
+        { error: 'Scenario not found' },
         { status: 404 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      portfolio,
+      scenario,
     })
 
   } catch (error) {
-    console.error('❌ Portfolio GET error:', error)
+    console.error('❌ Scenario GET error:', error)
     return NextResponse.json(
       { 
-        error: 'Failed to retrieve portfolio',
+        error: 'Failed to retrieve scenario',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
@@ -69,8 +67,8 @@ export async function GET(
 }
 
 /**
- * PUT /api/portfolios/[id]
- * Update an existing portfolio
+ * PUT /api/scenarios/[id]
+ * Update an existing scenario
  */
 export async function PUT(
   request: NextRequest,
@@ -90,12 +88,12 @@ export async function PUT(
 
     // Parse and validate request body
     const body = await request.json()
-    const validationResult = updatePortfolioSchema.safeParse(body)
+    const validationResult = updateScenarioSchema.safeParse(body)
     
     if (!validationResult.success) {
       return NextResponse.json(
         { 
-          error: 'Invalid portfolio data',
+          error: 'Invalid scenario data',
           details: validationResult.error.issues
         },
         { status: 400 }
@@ -104,9 +102,9 @@ export async function PUT(
 
     const updateData = validationResult.data
 
-    // Update portfolio
-    const { data: portfolio, error } = await supabase
-      .from('portfolios')
+    // Update scenario
+    const { data: scenario, error } = await supabase
+      .from('scenarios')
       .update({
         ...updateData,
         updated_at: new Date().toISOString(),
@@ -117,24 +115,24 @@ export async function PUT(
       .single()
 
     if (error) {
-      console.error('❌ Portfolio update error:', error)
+      console.error('❌ Scenario update error:', error)
       return NextResponse.json(
-        { error: 'Failed to update portfolio' },
+        { error: 'Failed to update scenario' },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      portfolio,
-      message: 'Portfolio updated successfully',
+      scenario,
+      message: 'Scenario updated successfully',
     })
 
   } catch (error) {
-    console.error('❌ Portfolio PUT error:', error)
+    console.error('❌ Scenario PUT error:', error)
     return NextResponse.json(
       { 
-        error: 'Failed to update portfolio',
+        error: 'Failed to update scenario',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
@@ -143,8 +141,8 @@ export async function PUT(
 }
 
 /**
- * DELETE /api/portfolios/[id]
- * Delete a portfolio
+ * DELETE /api/scenarios/[id]
+ * Delete a scenario
  */
 export async function DELETE(
   request: NextRequest,
@@ -162,31 +160,31 @@ export async function DELETE(
       )
     }
 
-    // Delete portfolio
+    // Delete scenario
     const { error } = await supabase
-      .from('portfolios')
+      .from('scenarios')
       .delete()
       .eq('id', params.id)
       .eq('user_id', user.id)
 
     if (error) {
-      console.error('❌ Portfolio deletion error:', error)
+      console.error('❌ Scenario deletion error:', error)
       return NextResponse.json(
-        { error: 'Failed to delete portfolio' },
+        { error: 'Failed to delete scenario' },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Portfolio deleted successfully',
+      message: 'Scenario deleted successfully',
     })
 
   } catch (error) {
-    console.error('❌ Portfolio DELETE error:', error)
+    console.error('❌ Scenario DELETE error:', error)
     return NextResponse.json(
       { 
-        error: 'Failed to delete portfolio',
+        error: 'Failed to delete scenario',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
