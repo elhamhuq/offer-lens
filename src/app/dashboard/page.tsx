@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -23,13 +23,17 @@ import {
   Building,
   FolderOpen,
   Sparkles,
+  Edit,
+  Eye,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useScenario } from '@/hooks/useScenario';
 import { useStore } from '@/store/useStore';
 import FileUploadRAG from '@/components/FileUploadRAG';
 import InvestmentForm from '@/components/InvestmentForm';
+import { SimpleDropdown, DropdownItem } from '@/components/ui/simple-dropdown';
 import type { JobOffer, Investment } from '@/types';
 
 export default function DashboardPage() {
@@ -46,24 +50,48 @@ export default function DashboardPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const { createScenario, deleteScenario } = useScenario();
+  // Edit scenario state
+  const [editingScenario, setEditingScenario] = useState<string | null>(null);
+  const [editScenarioName, setEditScenarioName] = useState('');
+  const [editJobOffer, setEditJobOffer] = useState<Partial<JobOffer>>({});
+  const [editInvestments, setEditInvestments] = useState<Investment[]>([]);
+
+  const { createScenario, deleteScenario, updateCurrentScenario } =
+    useScenario();
   const { scenarios, addScenario, currentScenario, setCurrentScenario } =
     useStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Handle edit parameter from URL
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && scenarios.length > 0) {
+      const scenarioToEdit = scenarios.find(s => s.id === editId);
+      if (scenarioToEdit && !editingScenario) {
+        handleEditScenario(scenarioToEdit);
+      }
+    }
+  }, [searchParams, scenarios]);
 
   const handleManualJobEntry = () => {
+    const currentJobOffer = editingScenario ? editJobOffer : jobOffer;
     if (
-      jobOffer.title &&
-      jobOffer.company &&
-      jobOffer.salary &&
-      jobOffer.location
+      currentJobOffer.title &&
+      currentJobOffer.company &&
+      currentJobOffer.salary &&
+      currentJobOffer.location
     ) {
       setCurrentStep(2);
     }
   };
 
   const handleInvestmentsChange = (newInvestments: Investment[]) => {
-    setInvestments(newInvestments);
+    if (editingScenario) {
+      setEditInvestments(newInvestments);
+    } else {
+      setInvestments(newInvestments);
+    }
   };
 
   const handleSaveScenario = async () => {
@@ -99,6 +127,81 @@ export default function DashboardPage() {
         );
       } finally {
         setIsSaving(false);
+      }
+    }
+  };
+
+  // Edit scenario functions
+  const handleEditScenario = (scenario: any) => {
+    setEditingScenario(scenario.id);
+    setEditScenarioName(scenario.name);
+    setEditJobOffer(scenario.jobOffer);
+    setEditInvestments(scenario.investments);
+    setActiveTab('create');
+    setCurrentStep(1);
+  };
+
+  const handleSaveEdit = async () => {
+    if (
+      !editingScenario ||
+      !editScenarioName ||
+      !editJobOffer.title ||
+      editInvestments.length === 0
+    ) {
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      // Set the current scenario to the one being edited
+      const scenarioToEdit = scenarios.find(s => s.id === editingScenario);
+      if (scenarioToEdit) {
+        setCurrentScenario(scenarioToEdit);
+
+        // Update the scenario
+        await updateCurrentScenario({
+          name: editScenarioName,
+          jobOffer: editJobOffer as JobOffer,
+          investments: editInvestments,
+        });
+
+        // Show success message
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+
+        // Reset edit state and switch to scenarios tab
+        setEditingScenario(null);
+        setEditScenarioName('');
+        setEditJobOffer({});
+        setEditInvestments([]);
+        setActiveTab('scenarios');
+      }
+    } catch (error) {
+      console.error('Error updating scenario:', error);
+      setSaveError(
+        'An error occurred while updating the scenario. Please try again.'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleViewDetails = (scenario: any) => {
+    // Navigate to a detailed view or show a modal
+    router.push(`/dashboard/scenario/${scenario.id}`);
+  };
+
+  const handleDeleteScenario = async (scenarioId: string) => {
+    if (
+      confirm(
+        'Are you sure you want to delete this scenario? This action cannot be undone.'
+      )
+    ) {
+      const success = await deleteScenario(scenarioId);
+      if (!success) {
+        setSaveError('Failed to delete scenario. Please try again.');
       }
     }
   };
@@ -203,9 +306,27 @@ export default function DashboardPage() {
                           </span>
                         </CardDescription>
                       </div>
-                      <Button variant='ghost' size='sm'>
-                        <MoreHorizontal className='w-4 h-4' />
-                      </Button>
+                      <SimpleDropdown
+                        trigger={
+                          <Button variant='ghost' size='sm'>
+                            <MoreHorizontal className='w-4 h-4' />
+                          </Button>
+                        }
+                        align='right'
+                      >
+                        <DropdownItem
+                          onClick={() => handleViewDetails(scenario)}
+                        >
+                          <Eye className='w-4 h-4 mr-2' />
+                          <span>View Details</span>
+                        </DropdownItem>
+                        <DropdownItem
+                          onClick={() => handleDeleteScenario(scenario.id)}
+                        >
+                          <Trash2 className='w-4 h-4 mr-2' />
+                          <span>Delete</span>
+                        </DropdownItem>
+                      </SimpleDropdown>
                     </div>
                   </CardHeader>
                   <CardContent className='space-y-4'>
@@ -256,44 +377,12 @@ export default function DashboardPage() {
                     {/* Actions */}
                     <div className='flex space-x-2 pt-2'>
                       <Button
-                        variant='outline'
-                        size='sm'
-                        className='flex-1 bg-transparent'
-                        onClick={() => {
-                          // TODO: Implement scenario detail view
-                          console.log(
-                            'View details for scenario:',
-                            scenario.id
-                          );
-                        }}
-                      >
-                        View Details
-                      </Button>
-                      <Button
                         size='sm'
                         className='flex-1 bg-primary hover:bg-primary/90'
-                        onClick={() => {
-                          // TODO: Implement scenario edit functionality
-                          console.log('Edit scenario:', scenario.id);
-                        }}
+                        onClick={() => handleEditScenario(scenario)}
                       >
+                        <Edit className='w-4 h-4 mr-2' />
                         Edit
-                      </Button>
-                      <Button
-                        variant='destructive'
-                        size='sm'
-                        className='flex-1'
-                        onClick={() => {
-                          if (
-                            confirm(
-                              'Are you sure you want to delete this scenario? This action cannot be undone.'
-                            )
-                          ) {
-                            deleteScenario(scenario.id);
-                          }
-                        }}
-                      >
-                        Delete
                       </Button>
                     </div>
                   </CardContent>
@@ -364,21 +453,32 @@ export default function DashboardPage() {
               )}
               {saveSuccess && (
                 <div className='text-sm text-green-600 bg-green-50 px-3 py-2 rounded-md'>
-                  Scenario saved successfully!
+                  {editingScenario
+                    ? 'Scenario updated successfully!'
+                    : 'Scenario saved successfully!'}
                 </div>
               )}
               <Button
-                onClick={handleSaveScenario}
+                onClick={editingScenario ? handleSaveEdit : handleSaveScenario}
                 disabled={
-                  !scenarioName ||
-                  !jobOffer.title ||
-                  investments.length === 0 ||
-                  isSaving
+                  editingScenario
+                    ? !editScenarioName ||
+                      !editJobOffer.title ||
+                      editInvestments.length === 0 ||
+                      isSaving
+                    : !scenarioName ||
+                      !jobOffer.title ||
+                      investments.length === 0 ||
+                      isSaving
                 }
                 className='bg-primary hover:bg-primary/90'
               >
                 <Save className='w-4 h-4 mr-2' />
-                {isSaving ? 'Saving...' : 'Save Scenario'}
+                {isSaving
+                  ? 'Saving...'
+                  : editingScenario
+                    ? 'Update Scenario'
+                    : 'Save Scenario'}
               </Button>
             </div>
           </div>
@@ -436,13 +536,24 @@ export default function DashboardPage() {
                         <Label htmlFor='company'>Company</Label>
                         <Input
                           id='company'
-                          value={jobOffer.company || ''}
-                          onChange={e =>
-                            setJobOffer({
-                              ...jobOffer,
-                              company: e.target.value,
-                            })
+                          value={
+                            editingScenario
+                              ? editJobOffer.company || ''
+                              : jobOffer.company || ''
                           }
+                          onChange={e => {
+                            if (editingScenario) {
+                              setEditJobOffer({
+                                ...editJobOffer,
+                                company: e.target.value,
+                              });
+                            } else {
+                              setJobOffer({
+                                ...jobOffer,
+                                company: e.target.value,
+                              });
+                            }
+                          }}
                           placeholder='TechCorp Inc.'
                         />
                       </div>
@@ -450,13 +561,24 @@ export default function DashboardPage() {
                         <Label htmlFor='title'>Job Title</Label>
                         <Input
                           id='title'
-                          value={jobOffer.title || ''}
-                          onChange={e =>
-                            setJobOffer({
-                              ...jobOffer,
-                              title: e.target.value,
-                            })
+                          value={
+                            editingScenario
+                              ? editJobOffer.title || ''
+                              : jobOffer.title || ''
                           }
+                          onChange={e => {
+                            if (editingScenario) {
+                              setEditJobOffer({
+                                ...editJobOffer,
+                                title: e.target.value,
+                              });
+                            } else {
+                              setJobOffer({
+                                ...jobOffer,
+                                title: e.target.value,
+                              });
+                            }
+                          }}
                           placeholder='Senior Software Engineer'
                         />
                       </div>
@@ -468,13 +590,24 @@ export default function DashboardPage() {
                         <Input
                           id='salary'
                           type='number'
-                          value={jobOffer.salary || ''}
-                          onChange={e =>
-                            setJobOffer({
-                              ...jobOffer,
-                              salary: Number(e.target.value),
-                            })
+                          value={
+                            editingScenario
+                              ? editJobOffer.salary || ''
+                              : jobOffer.salary || ''
                           }
+                          onChange={e => {
+                            if (editingScenario) {
+                              setEditJobOffer({
+                                ...editJobOffer,
+                                salary: Number(e.target.value),
+                              });
+                            } else {
+                              setJobOffer({
+                                ...jobOffer,
+                                salary: Number(e.target.value),
+                              });
+                            }
+                          }}
                           placeholder='150000'
                         />
                       </div>
@@ -482,13 +615,24 @@ export default function DashboardPage() {
                         <Label htmlFor='location'>Location</Label>
                         <Input
                           id='location'
-                          value={jobOffer.location || ''}
-                          onChange={e =>
-                            setJobOffer({
-                              ...jobOffer,
-                              location: e.target.value,
-                            })
+                          value={
+                            editingScenario
+                              ? editJobOffer.location || ''
+                              : jobOffer.location || ''
                           }
+                          onChange={e => {
+                            if (editingScenario) {
+                              setEditJobOffer({
+                                ...editJobOffer,
+                                location: e.target.value,
+                              });
+                            } else {
+                              setJobOffer({
+                                ...jobOffer,
+                                location: e.target.value,
+                              });
+                            }
+                          }}
                           placeholder='San Francisco, CA'
                         />
                       </div>
@@ -497,10 +641,15 @@ export default function DashboardPage() {
                     <Button
                       onClick={handleManualJobEntry}
                       disabled={
-                        !jobOffer.title ||
-                        !jobOffer.company ||
-                        !jobOffer.salary ||
-                        !jobOffer.location
+                        editingScenario
+                          ? !editJobOffer.title ||
+                            !editJobOffer.company ||
+                            !editJobOffer.salary ||
+                            !editJobOffer.location
+                          : !jobOffer.title ||
+                            !jobOffer.company ||
+                            !jobOffer.salary ||
+                            !jobOffer.location
                       }
                       className='w-full bg-primary hover:bg-primary/90'
                     >
@@ -519,12 +668,23 @@ export default function DashboardPage() {
                     <div className='flex items-center justify-between'>
                       <div>
                         <p className='font-medium text-foreground'>
-                          {jobOffer.company}
+                          {editingScenario
+                            ? editJobOffer.company
+                            : jobOffer.company}
                         </p>
                         <p className='text-sm text-muted-foreground'>
-                          {jobOffer.title} • $
-                          {jobOffer.salary?.toLocaleString()} •{' '}
-                          {jobOffer.location}
+                          {editingScenario
+                            ? editJobOffer.title
+                            : jobOffer.title}{' '}
+                          • $
+                          {(editingScenario
+                            ? editJobOffer.salary
+                            : jobOffer.salary
+                          )?.toLocaleString()}{' '}
+                          •{' '}
+                          {editingScenario
+                            ? editJobOffer.location
+                            : jobOffer.location}
                         </p>
                       </div>
                       <Button
@@ -567,15 +727,24 @@ export default function DashboardPage() {
                 <InvestmentForm
                   onInvestmentsChange={handleInvestmentsChange}
                   monthlyBudget={
-                    Math.floor(((jobOffer.salary || 0) * 0.7) / 12) -
-                    monthlyExpenses
+                    Math.floor(
+                      (((editingScenario
+                        ? editJobOffer.salary
+                        : jobOffer.salary) || 0) *
+                        0.7) /
+                        12
+                    ) - monthlyExpenses
                   } // Using 70% take-home pay estimate
                 />
 
                 <div className='flex justify-center'>
                   <Button
                     onClick={() => setCurrentStep(3)}
-                    disabled={investments.length === 0}
+                    disabled={
+                      (editingScenario
+                        ? editInvestments.length
+                        : investments.length) === 0
+                    }
                     className='bg-primary hover:bg-primary/90'
                   >
                     Continue to Review
@@ -599,10 +768,23 @@ export default function DashboardPage() {
                       <Label htmlFor='scenarioName'>Scenario Name</Label>
                       <Input
                         id='scenarioName'
-                        value={scenarioName}
-                        onChange={e => setScenarioName(e.target.value)}
-                        placeholder={`${jobOffer.company} ${
-                          jobOffer.location?.split(',')[1]?.trim() || ''
+                        value={
+                          editingScenario ? editScenarioName : scenarioName
+                        }
+                        onChange={e => {
+                          if (editingScenario) {
+                            setEditScenarioName(e.target.value);
+                          } else {
+                            setScenarioName(e.target.value);
+                          }
+                        }}
+                        placeholder={`${editingScenario ? editJobOffer.company : jobOffer.company} ${
+                          (editingScenario
+                            ? editJobOffer.location
+                            : jobOffer.location
+                          )
+                            ?.split(',')[1]
+                            ?.trim() || ''
                         }`}
                       />
                     </div>
@@ -621,25 +803,35 @@ export default function DashboardPage() {
                       <div className='flex justify-between'>
                         <span className='text-muted-foreground'>Company</span>
                         <span className='font-medium text-foreground'>
-                          {jobOffer.company}
+                          {editingScenario
+                            ? editJobOffer.company
+                            : jobOffer.company}
                         </span>
                       </div>
                       <div className='flex justify-between'>
                         <span className='text-muted-foreground'>Position</span>
                         <span className='font-medium text-foreground'>
-                          {jobOffer.title}
+                          {editingScenario
+                            ? editJobOffer.title
+                            : jobOffer.title}
                         </span>
                       </div>
                       <div className='flex justify-between'>
                         <span className='text-muted-foreground'>Salary</span>
                         <span className='font-medium text-foreground'>
-                          ${jobOffer.salary?.toLocaleString()}
+                          $
+                          {(editingScenario
+                            ? editJobOffer.salary
+                            : jobOffer.salary
+                          )?.toLocaleString()}
                         </span>
                       </div>
                       <div className='flex justify-between'>
                         <span className='text-muted-foreground'>Location</span>
                         <span className='font-medium text-foreground'>
-                          {jobOffer.location}
+                          {editingScenario
+                            ? editJobOffer.location
+                            : jobOffer.location}
                         </span>
                       </div>
                     </CardContent>
@@ -658,7 +850,7 @@ export default function DashboardPage() {
                         </span>
                         <span className='font-medium text-foreground'>
                           $
-                          {investments
+                          {(editingScenario ? editInvestments : investments)
                             .reduce(
                               (sum: number, inv: Investment) =>
                                 sum + inv.monthlyAmount,
@@ -672,7 +864,9 @@ export default function DashboardPage() {
                           Number of ETFs
                         </span>
                         <span className='font-medium text-foreground'>
-                          {investments.length}
+                          {editingScenario
+                            ? editInvestments.length
+                            : investments.length}
                         </span>
                       </div>
                       <div className='flex justify-between'>
@@ -682,7 +876,10 @@ export default function DashboardPage() {
                         <span className='font-medium text-foreground'>
                           $
                           {(
-                            investments.reduce(
+                            (editingScenario
+                              ? editInvestments
+                              : investments
+                            ).reduce(
                               (sum: number, inv: Investment) =>
                                 sum + inv.monthlyAmount,
                               0
