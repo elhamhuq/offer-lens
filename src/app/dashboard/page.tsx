@@ -13,9 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
-  ArrowLeft,
   Save,
-  Upload,
   TrendingUp,
   Plus,
   MoreHorizontal,
@@ -25,20 +23,13 @@ import {
   Building,
   FolderOpen,
   Sparkles,
-  Target,
-  BarChart3,
-  Brain,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useScenario } from '@/hooks/useScenario';
 import { useStore } from '@/store/useStore';
-import FileUpload from '@/components/FileUpload';
 import FileUploadRAG from '@/components/FileUploadRAG';
 import InvestmentForm from '@/components/InvestmentForm';
-import FinancialChart from '@/components/FinancialChart';
-import ScenarioComparison from '@/components/ScenarioComparison';
-import AIExplanation from '@/components/AIExplanation';
 import type { JobOffer, Investment } from '@/types';
 
 export default function DashboardPage() {
@@ -50,25 +41,12 @@ export default function DashboardPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [jobOffer, setJobOffer] = useState<Partial<JobOffer>>({});
   const [investments, setInvestments] = useState<Investment[]>([]);
-  const [isManualEntry, setIsManualEntry] = useState(false);
+  const [monthlyExpenses, setMonthlyExpenses] = useState(4000);
 
   const { createScenario, deleteScenario } = useScenario();
   const { scenarios, addScenario, currentScenario, setCurrentScenario } =
     useStore();
   const router = useRouter();
-
-  const handleFileProcessed = (data: any) => {
-    setJobOffer({
-      id: Date.now().toString(),
-      title: data.title,
-      company: data.company,
-      salary: data.salary,
-      location: data.location,
-      benefits: data.benefits,
-      uploadedAt: new Date(),
-    });
-    setCurrentStep(2);
-  };
 
   const handleManualJobEntry = () => {
     if (
@@ -97,7 +75,6 @@ export default function DashboardPage() {
       setCurrentStep(1);
       setJobOffer({});
       setInvestments([]);
-      setIsManualEntry(false);
       setActiveTab('scenarios');
     }
   };
@@ -120,11 +97,6 @@ export default function DashboardPage() {
     { id: 'scenarios', label: 'Scenarios', icon: FolderOpen },
     { id: 'create', label: 'Create New', icon: Plus },
     { id: 'ai-analysis', label: 'AI Document Analysis', icon: Sparkles },
-    { id: 'upload', label: 'Upload Offers', icon: Upload },
-    { id: 'invest', label: 'Investment Strategy', icon: Target },
-    { id: 'analyze', label: 'Financial Analysis', icon: BarChart3 },
-    { id: 'compare', label: 'Compare Scenarios', icon: TrendingUp },
-    { id: 'ai', label: 'AI Insights', icon: Brain },
   ];
 
   return (
@@ -283,6 +255,22 @@ export default function DashboardPage() {
                       >
                         Edit
                       </Button>
+                      <Button
+                        variant='destructive'
+                        size='sm'
+                        className='flex-1'
+                        onClick={() => {
+                          if (
+                            confirm(
+                              'Are you sure you want to delete this scenario? This action cannot be undone.'
+                            )
+                          ) {
+                            deleteScenario(scenario.id);
+                          }
+                        }}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -336,110 +324,6 @@ export default function DashboardPage() {
               </Button>
             </CardContent>
           </Card>
-        </div>
-      )}
-
-      {/* Tab Content for Upload */}
-      {activeTab === 'upload' && (
-        <div className='grid lg:grid-cols-2 gap-8'>
-          <FileUpload onFileProcessed={handleFileProcessed} />
-          <Card>
-            <CardHeader>
-              <CardTitle>Getting Started</CardTitle>
-              <CardDescription>
-                Upload your job offer documents to begin analyzing your
-                financial future
-              </CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <h4 className='font-medium'>Supported formats:</h4>
-                <ul className='text-sm text-muted-foreground space-y-1'>
-                  <li>• PDF documents</li>
-                  <li>• Text files (.txt)</li>
-                  <li>• Word documents (.doc, .docx)</li>
-                </ul>
-              </div>
-              <div className='space-y-2'>
-                <h4 className='font-medium'>What we extract:</h4>
-                <ul className='text-sm text-muted-foreground space-y-1'>
-                  <li>• Salary and compensation</li>
-                  <li>• Benefits and perks</li>
-                  <li>• Job location</li>
-                  <li>• Company information</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Tab Content for Investment Strategy */}
-      {activeTab === 'invest' && (
-        <div className='space-y-6'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <h2 className='text-2xl font-bold'>Investment Strategy</h2>
-              <p className='text-muted-foreground'>
-                Plan your investment strategy based on your job offer
-              </p>
-            </div>
-          </div>
-
-          <InvestmentForm
-            onInvestmentsChange={handleInvestmentsChange}
-            monthlyBudget={
-              Math.floor(((jobOffer.salary || 0) * 0.72) / 12) - 4000
-            }
-          />
-        </div>
-      )}
-
-      {/* Tab Content for Financial Analysis */}
-      {activeTab === 'analyze' && (
-        <div className='space-y-6'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <h2 className='text-2xl font-bold'>Financial Analysis</h2>
-              <p className='text-muted-foreground'>
-                Analyze your financial projections and growth potential
-              </p>
-            </div>
-          </div>
-
-          <FinancialChart />
-        </div>
-      )}
-
-      {/* Tab Content for Compare Scenarios */}
-      {activeTab === 'compare' && (
-        <div className='space-y-6'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <h2 className='text-2xl font-bold'>Compare Scenarios</h2>
-              <p className='text-muted-foreground'>
-                Compare different job offers and investment strategies
-              </p>
-            </div>
-          </div>
-
-          <ScenarioComparison scenarios={scenarios} />
-        </div>
-      )}
-
-      {/* Tab Content for AI Insights */}
-      {activeTab === 'ai' && (
-        <div className='space-y-6'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <h2 className='text-2xl font-bold'>AI Insights</h2>
-              <p className='text-muted-foreground'>
-                Get personalized insights and recommendations from AI
-              </p>
-            </div>
-          </div>
-
-          <AIExplanation />
         </div>
       )}
 
@@ -500,124 +384,91 @@ export default function DashboardPage() {
             {/* Step 1: Job Offer */}
             {currentStep === 1 && (
               <div className='space-y-6'>
-                <div className='flex justify-center space-x-4 mb-6'>
-                  <Button
-                    variant={!isManualEntry ? 'default' : 'outline'}
-                    onClick={() => setIsManualEntry(false)}
-                    className={
-                      !isManualEntry
-                        ? 'bg-primary hover:bg-primary/90'
-                        : 'bg-transparent'
-                    }
-                  >
-                    <Upload className='w-4 h-4 mr-2' />
-                    Upload Document
-                  </Button>
-                  <Button
-                    variant={isManualEntry ? 'default' : 'outline'}
-                    onClick={() => setIsManualEntry(true)}
-                    className={
-                      isManualEntry
-                        ? 'bg-primary hover:bg-primary/90'
-                        : 'bg-transparent'
-                    }
-                  >
-                    Manual Entry
-                  </Button>
-                </div>
-
-                {!isManualEntry ? (
-                  <FileUpload
-                    onFileProcessed={handleFileProcessed}
-                    maxFiles={1}
-                  />
-                ) : (
-                  <Card className='bg-card border-border'>
-                    <CardHeader>
-                      <CardTitle>Enter Job Details</CardTitle>
-                      <CardDescription>
-                        Manually enter your job offer information
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className='space-y-4'>
-                      <div className='grid md:grid-cols-2 gap-4'>
-                        <div className='space-y-2'>
-                          <Label htmlFor='company'>Company</Label>
-                          <Input
-                            id='company'
-                            value={jobOffer.company || ''}
-                            onChange={e =>
-                              setJobOffer({
-                                ...jobOffer,
-                                company: e.target.value,
-                              })
-                            }
-                            placeholder='TechCorp Inc.'
-                          />
-                        </div>
-                        <div className='space-y-2'>
-                          <Label htmlFor='title'>Job Title</Label>
-                          <Input
-                            id='title'
-                            value={jobOffer.title || ''}
-                            onChange={e =>
-                              setJobOffer({
-                                ...jobOffer,
-                                title: e.target.value,
-                              })
-                            }
-                            placeholder='Senior Software Engineer'
-                          />
-                        </div>
+                <Card className='bg-card border-border'>
+                  <CardHeader>
+                    <CardTitle>Enter Job Details</CardTitle>
+                    <CardDescription>
+                      Manually enter your job offer information
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className='space-y-4'>
+                    <div className='grid md:grid-cols-2 gap-4'>
+                      <div className='space-y-2'>
+                        <Label htmlFor='company'>Company</Label>
+                        <Input
+                          id='company'
+                          value={jobOffer.company || ''}
+                          onChange={e =>
+                            setJobOffer({
+                              ...jobOffer,
+                              company: e.target.value,
+                            })
+                          }
+                          placeholder='TechCorp Inc.'
+                        />
                       </div>
-
-                      <div className='grid md:grid-cols-2 gap-4'>
-                        <div className='space-y-2'>
-                          <Label htmlFor='salary'>Annual Salary</Label>
-                          <Input
-                            id='salary'
-                            type='number'
-                            value={jobOffer.salary || ''}
-                            onChange={e =>
-                              setJobOffer({
-                                ...jobOffer,
-                                salary: Number(e.target.value),
-                              })
-                            }
-                            placeholder='150000'
-                          />
-                        </div>
-                        <div className='space-y-2'>
-                          <Label htmlFor='location'>Location</Label>
-                          <Input
-                            id='location'
-                            value={jobOffer.location || ''}
-                            onChange={e =>
-                              setJobOffer({
-                                ...jobOffer,
-                                location: e.target.value,
-                              })
-                            }
-                            placeholder='San Francisco, CA'
-                          />
-                        </div>
+                      <div className='space-y-2'>
+                        <Label htmlFor='title'>Job Title</Label>
+                        <Input
+                          id='title'
+                          value={jobOffer.title || ''}
+                          onChange={e =>
+                            setJobOffer({
+                              ...jobOffer,
+                              title: e.target.value,
+                            })
+                          }
+                          placeholder='Senior Software Engineer'
+                        />
                       </div>
+                    </div>
 
-                      <Button
-                        onClick={handleManualJobEntry}
-                        disabled={
-                          !jobOffer.title ||
-                          !jobOffer.company ||
-                          !jobOffer.salary ||
-                          !jobOffer.location
-                        }
-                        className='w-full bg-primary hover:bg-primary/90'
-                      >
-                        Continue to Investments
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
+                    <div className='grid md:grid-cols-2 gap-4'>
+                      <div className='space-y-2'>
+                        <Label htmlFor='salary'>Annual Salary</Label>
+                        <Input
+                          id='salary'
+                          type='number'
+                          value={jobOffer.salary || ''}
+                          onChange={e =>
+                            setJobOffer({
+                              ...jobOffer,
+                              salary: Number(e.target.value),
+                            })
+                          }
+                          placeholder='150000'
+                        />
+                      </div>
+                      <div className='space-y-2'>
+                        <Label htmlFor='location'>Location</Label>
+                        <Input
+                          id='location'
+                          value={jobOffer.location || ''}
+                          onChange={e =>
+                            setJobOffer({
+                              ...jobOffer,
+                              location: e.target.value,
+                            })
+                          }
+                          placeholder='San Francisco, CA'
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={handleManualJobEntry}
+                      disabled={
+                        !jobOffer.title ||
+                        !jobOffer.company ||
+                        !jobOffer.salary ||
+                        !jobOffer.location
+                      }
+                      className='w-full bg-primary hover:bg-primary/90'
+                    >
+                      Continue to Investments
+                    </Button>
+                  </CardContent>
+                </Card>
               </div>
             )}
 
@@ -648,11 +499,38 @@ export default function DashboardPage() {
                   </CardContent>
                 </Card>
 
+                <Card className='bg-card border-border'>
+                  <CardHeader>
+                    <CardTitle>Estimate Monthly Expenses</CardTitle>
+                    <CardDescription>
+                      Provide an estimate of your monthly expenses to calculate
+                      your investment budget.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className='space-y-2'>
+                      <Label htmlFor='monthlyExpenses'>
+                        Monthly Expenses ($)
+                      </Label>
+                      <Input
+                        id='monthlyExpenses'
+                        type='number'
+                        value={monthlyExpenses}
+                        onChange={e =>
+                          setMonthlyExpenses(Number(e.target.value))
+                        }
+                        placeholder='e.g., 4000'
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <InvestmentForm
                   onInvestmentsChange={handleInvestmentsChange}
                   monthlyBudget={
-                    Math.floor(((jobOffer.salary || 0) * 0.72) / 12) - 4000
-                  } // Rough take-home minus expenses
+                    Math.floor(((jobOffer.salary || 0) * 0.7) / 12) -
+                    monthlyExpenses
+                  } // Using 70% take-home pay estimate
                 />
 
                 <div className='flex justify-center'>
