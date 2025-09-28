@@ -18,12 +18,14 @@ export default function AnimatedPortfolioChart({
     const data = [];
     let value = 0;
     const monthlyInvestment = 1500;
-    const annualReturn = 0.082;
+    const monthlyReturn = 0.082 / 12; // Convert annual to monthly return
 
     for (let year = 0; year <= 30; year++) {
       if (year > 0) {
-        // Add monthly contributions and apply annual return
-        value = (value + monthlyInvestment * 12) * (1 + annualReturn);
+        // Apply monthly contributions and returns for 12 months
+        for (let month = 0; month < 12; month++) {
+          value = (value + monthlyInvestment) * (1 + monthlyReturn);
+        }
       }
       data.push({
         year,
