@@ -47,23 +47,7 @@ export default function FinancialAnalysisPage() {
       ) : (
         <div className='space-y-8'>
           {/* Financial Chart */}
-          <Card className='bg-card border-border'>
-            <CardHeader>
-              <CardTitle className='flex items-center space-x-2'>
-                <BarChart3 className='w-5 h-5 text-primary' />
-                <span>Investment Growth Projection</span>
-              </CardTitle>
-              <CardDescription>
-                See how your investments are projected to grow over time
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FinancialChart
-                title='Portfolio Growth'
-                description='Your investment growth over time'
-              />
-            </CardContent>
-          </Card>
+          <FinancialChart />
 
           {/* Scenario Comparison */}
           {scenarios.length > 1 && (
