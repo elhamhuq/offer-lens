@@ -8,29 +8,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  BarChart3,
-  TrendingUp,
-  DollarSign,
-  Target,
-  Calculator,
-  PieChart,
-} from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import FinancialChart from '@/components/FinancialChart';
 
 export default function FinancialAnalysisPage() {
-  const { scenarios, currentScenario } = useStore();
-  const [selectedTimeframe, setSelectedTimeframe] = useState('10');
-
-  const timeframes = [
-    { value: '5', label: '5 Years' },
-    { value: '10', label: '10 Years' },
-    { value: '20', label: '20 Years' },
-    { value: '30', label: '30 Years' },
-  ];
+  const { scenarios } = useStore();
 
   return (
     <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
@@ -62,108 +46,6 @@ export default function FinancialAnalysisPage() {
         </Card>
       ) : (
         <div className='space-y-8'>
-          {/* Timeframe Selection */}
-          <div className='flex justify-center'>
-            <div className='flex space-x-2'>
-              {timeframes.map(timeframe => (
-                <Button
-                  key={timeframe.value}
-                  variant={
-                    selectedTimeframe === timeframe.value
-                      ? 'default'
-                      : 'outline'
-                  }
-                  onClick={() => setSelectedTimeframe(timeframe.value)}
-                  className={
-                    selectedTimeframe === timeframe.value
-                      ? 'bg-primary hover:bg-primary/90'
-                      : 'bg-transparent'
-                  }
-                >
-                  {timeframe.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* Key Metrics */}
-          <div className='grid md:grid-cols-4 gap-6'>
-            <Card className='bg-card border-border'>
-              <CardContent className='p-6'>
-                <div className='flex items-center space-x-2 mb-2'>
-                  <DollarSign className='w-5 h-5 text-primary' />
-                  <span className='text-sm font-medium text-muted-foreground'>
-                    Total Investment
-                  </span>
-                </div>
-                <div className='text-2xl font-bold text-foreground'>
-                  $
-                  {currentScenario?.investments
-                    .reduce((sum, inv) => sum + inv.monthlyAmount, 0)
-                    .toLocaleString() || '0'}
-                </div>
-                <p className='text-xs text-muted-foreground'>per month</p>
-              </CardContent>
-            </Card>
-
-            <Card className='bg-card border-border'>
-              <CardContent className='p-6'>
-                <div className='flex items-center space-x-2 mb-2'>
-                  <TrendingUp className='w-5 h-5 text-accent' />
-                  <span className='text-sm font-medium text-muted-foreground'>
-                    Projected Value
-                  </span>
-                </div>
-                <div className='text-2xl font-bold text-foreground'>
-                  $
-                  {currentScenario
-                    ? (
-                        (currentScenario.investments.reduce(
-                          (sum, inv) => sum + inv.monthlyAmount,
-                          0
-                        ) *
-                          12 *
-                          parseInt(selectedTimeframe) *
-                          1.082) **
-                        1
-                      ).toLocaleString()
-                    : '0'}
-                </div>
-                <p className='text-xs text-muted-foreground'>
-                  in {selectedTimeframe} years
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className='bg-card border-border'>
-              <CardContent className='p-6'>
-                <div className='flex items-center space-x-2 mb-2'>
-                  <Target className='w-5 h-5 text-chart-2' />
-                  <span className='text-sm font-medium text-muted-foreground'>
-                    Annual Return
-                  </span>
-                </div>
-                <div className='text-2xl font-bold text-foreground'>8.2%</div>
-                <p className='text-xs text-muted-foreground'>expected</p>
-              </CardContent>
-            </Card>
-
-            <Card className='bg-card border-border'>
-              <CardContent className='p-6'>
-                <div className='flex items-center space-x-2 mb-2'>
-                  <PieChart className='w-5 h-5 text-chart-3' />
-                  <span className='text-sm font-medium text-muted-foreground'>
-                    Diversification
-                  </span>
-                </div>
-                <div className='text-2xl font-bold text-foreground'>
-                  {currentScenario?.investments.length || 0}
-                </div>
-                <p className='text-xs text-muted-foreground'>ETFs</p>
-              </CardContent>
-            </Card>
-          </div>
-
           {/* Financial Chart */}
           <Card className='bg-card border-border'>
             <CardHeader>
@@ -178,8 +60,7 @@ export default function FinancialAnalysisPage() {
             <CardContent>
               <FinancialChart
                 title='Portfolio Growth'
-                description={`Your investment growth over ${selectedTimeframe} years`}
-                timeHorizon={parseInt(selectedTimeframe)}
+                description='Your investment growth over time'
               />
             </CardContent>
           </Card>
@@ -200,11 +81,7 @@ export default function FinancialAnalysisPage() {
                       (sum, inv) => sum + inv.monthlyAmount,
                       0
                     );
-                    const projectedValue =
-                      monthlyInvestment *
-                      12 *
-                      parseInt(selectedTimeframe) *
-                      1.082;
+                    const projectedValue = monthlyInvestment * 12 * 10 * 1.082;
 
                     return (
                       <div
