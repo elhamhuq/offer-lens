@@ -12,13 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -32,6 +25,10 @@ import {
   DollarSign,
   Target,
   PieChart,
+  Search,
+  CheckCircle,
+  XCircle,
+  Loader2,
 } from 'lucide-react';
 import type { Investment } from '@/types';
 
@@ -40,65 +37,6 @@ interface InvestmentFormProps {
   initialInvestments?: Investment[];
   monthlyBudget?: number;
 }
-
-const popularETFs = [
-  {
-    ticker: 'SPY',
-    name: 'SPDR S&P 500 ETF',
-    category: 'Large Cap',
-    risk: 'medium',
-    expense: 0.09,
-  },
-  {
-    ticker: 'VTI',
-    name: 'Vanguard Total Stock Market',
-    category: 'Total Market',
-    risk: 'medium',
-    expense: 0.03,
-  },
-  {
-    ticker: 'VXUS',
-    name: 'Vanguard Total International',
-    category: 'International',
-    risk: 'medium',
-    expense: 0.08,
-  },
-  {
-    ticker: 'BND',
-    name: 'Vanguard Total Bond Market',
-    category: 'Bonds',
-    risk: 'low',
-    expense: 0.03,
-  },
-  {
-    ticker: 'VNQ',
-    name: 'Vanguard Real Estate',
-    category: 'REITs',
-    risk: 'high',
-    expense: 0.12,
-  },
-  {
-    ticker: 'QQQ',
-    name: 'Invesco QQQ Trust',
-    category: 'Tech',
-    risk: 'high',
-    expense: 0.2,
-  },
-  {
-    ticker: 'SCHD',
-    name: 'Schwab US Dividend Equity',
-    category: 'Dividend',
-    risk: 'medium',
-    expense: 0.06,
-  },
-  {
-    ticker: 'VTIAX',
-    name: 'Vanguard Total International',
-    category: 'International',
-    risk: 'medium',
-    expense: 0.11,
-  },
-];
 
 const riskLevels = {
   low: { color: 'text-chart-4', bg: 'bg-chart-4/10', label: 'Conservative' },
@@ -129,11 +67,95 @@ export default function InvestmentForm({
         ]
   );
 
-  const [selectedETF, setSelectedETF] = useState('');
+  const [tickerInput, setTickerInput] = useState('');
   const [newAmount, setNewAmount] = useState(500);
+  const [isValidating, setIsValidating] = useState(false);
+  const [tickerValidation, setTickerValidation] = useState<{
+    isValid: boolean;
+    stockInfo?: {
+      name: string;
+      price: number;
+      marketCap?: string;
+      sector?: string;
+    };
+    error?: string;
+  }>({ isValid: false });
 
-  // Removed useEffect that was causing infinite loops
-  // Budget constraints will be handled in the UI instead
+  // Stock ticker validation function
+  const validateStockTicker = async (ticker: string) => {
+    if (!ticker || ticker.length < 1) {
+      setTickerValidation({ isValid: false });
+      return;
+    }
+
+    setIsValidating(true);
+    setTickerValidation({ isValid: false });
+
+    try {
+      const response = await fetch(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Stock not found');
+      }
+
+      const data = await response.json();
+
+      if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
+        throw new Error('Invalid ticker symbol');
+      }
+
+      const result = data.chart.result[0];
+      const meta = result.meta;
+      const currentPrice = meta.regularMarketPrice;
+
+      if (!currentPrice || currentPrice <= 0) {
+        throw new Error('No current price available');
+      }
+
+      setTickerValidation({
+        isValid: true,
+        stockInfo: {
+          name: meta.longName || meta.shortName || ticker.toUpperCase(),
+          price: currentPrice,
+          marketCap: meta.marketCap
+            ? formatMarketCap(meta.marketCap)
+            : undefined,
+          sector: meta.sector || undefined,
+        },
+      });
+    } catch (error) {
+      setTickerValidation({
+        isValid: false,
+        error:
+          error instanceof Error ? error.message : 'Failed to validate ticker',
+      });
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  // Helper function to format market cap
+  const formatMarketCap = (marketCap: number): string => {
+    if (marketCap >= 1e12) return `$${(marketCap / 1e12).toFixed(2)}T`;
+    if (marketCap >= 1e9) return `$${(marketCap / 1e9).toFixed(2)}B`;
+    if (marketCap >= 1e6) return `$${(marketCap / 1e6).toFixed(2)}M`;
+    return `$${marketCap.toLocaleString()}`;
+  };
+
+  // Debounced validation effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (tickerInput.trim()) {
+        validateStockTicker(tickerInput.trim());
+      } else {
+        setTickerValidation({ isValid: false });
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [tickerInput]);
 
   const totalMonthlyInvestment = investments.reduce(
     (sum, inv) => sum + inv.monthlyAmount,
@@ -144,25 +166,24 @@ export default function InvestmentForm({
     monthlyBudget > 0 ? (totalMonthlyInvestment / monthlyBudget) * 100 : 0;
 
   const addInvestment = () => {
-    if (!selectedETF) return;
-
-    const etf = popularETFs.find(e => e.ticker === selectedETF);
-    if (!etf) return;
+    if (!tickerValidation.isValid || !tickerValidation.stockInfo) return;
 
     const newInvestment: Investment = {
       id: Date.now().toString(),
-      name: etf.name,
+      name: tickerValidation.stockInfo.name,
       monthlyAmount: newAmount,
-      etfTicker: etf.ticker,
-      riskLevel: etf.risk as 'low' | 'medium' | 'high',
+      etfTicker: tickerInput.toUpperCase(), // Reusing this field for stock ticker
+      riskLevel: 'medium', // Default to medium risk for individual stocks
     };
 
     const updatedInvestments = [...investments, newInvestment];
     setInvestments(updatedInvestments);
     onInvestmentsChange?.(updatedInvestments);
 
-    setSelectedETF('');
+    // Reset form
+    setTickerInput('');
     setNewAmount(500);
+    setTickerValidation({ isValid: false });
   };
 
   const removeInvestment = (id: string) => {
@@ -210,7 +231,7 @@ export default function InvestmentForm({
           <span>Investment Portfolio</span>
         </CardTitle>
         <CardDescription>
-          Build your ETF portfolio and set monthly contribution amounts
+          Build your stock portfolio and set monthly contribution amounts
         </CardDescription>
       </CardHeader>
       <CardContent className='space-y-6'>
@@ -300,9 +321,6 @@ export default function InvestmentForm({
 
           <div className='space-y-3'>
             {investments.map(investment => {
-              const etf = popularETFs.find(
-                e => e.ticker === investment.etfTicker
-              );
               return (
                 <Card key={investment.id} className='bg-muted/30 border-border'>
                   <CardContent className='p-4'>
@@ -322,11 +340,9 @@ export default function InvestmentForm({
                         <p className='text-sm text-muted-foreground'>
                           {investment.name}
                         </p>
-                        {etf && (
-                          <p className='text-xs text-muted-foreground'>
-                            {etf.category} • {etf.expense}% expense ratio
-                          </p>
-                        )}
+                        <p className='text-xs text-muted-foreground'>
+                          Individual Stock
+                        </p>
                       </div>
                       <Button
                         variant='ghost'
@@ -383,35 +399,44 @@ export default function InvestmentForm({
           <CardContent className='space-y-4'>
             <div className='grid md:grid-cols-2 gap-4'>
               <div className='space-y-2'>
-                <Label>Select ETF</Label>
-                <Select value={selectedETF} onValueChange={setSelectedETF}>
-                  <SelectTrigger>
-                    <SelectValue placeholder='Choose an ETF' />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {popularETFs.map(etf => (
-                      <SelectItem key={etf.ticker} value={etf.ticker}>
-                        <div className='flex items-center justify-between w-full'>
-                          <div>
-                            <span className='font-medium'>{etf.ticker}</span>
-                            <span className='text-muted-foreground ml-2'>
-                              {etf.name}
-                            </span>
-                          </div>
-                          <Badge
-                            variant='secondary'
-                            className={`ml-2 ${riskLevels[etf.risk as keyof typeof riskLevels].bg}`}
-                          >
-                            {
-                              riskLevels[etf.risk as keyof typeof riskLevels]
-                                .label
-                            }
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Stock Ticker Symbol</Label>
+                <div className='relative'>
+                  <Input
+                    type='text'
+                    value={tickerInput}
+                    onChange={e => setTickerInput(e.target.value.toUpperCase())}
+                    placeholder='Enter ticker (e.g., AAPL, MSFT, TSLA)'
+                    className='pr-10'
+                  />
+                  <div className='absolute right-3 top-1/2 transform -translate-y-1/2'>
+                    {isValidating ? (
+                      <Loader2 className='w-4 h-4 animate-spin text-muted-foreground' />
+                    ) : tickerValidation.isValid ? (
+                      <CheckCircle className='w-4 h-4 text-green-500' />
+                    ) : tickerInput &&
+                      !tickerValidation.isValid &&
+                      tickerValidation.error ? (
+                      <XCircle className='w-4 h-4 text-red-500' />
+                    ) : (
+                      <Search className='w-4 h-4 text-muted-foreground' />
+                    )}
+                  </div>
+                </div>
+                {tickerInput && !isValidating && (
+                  <div className='text-xs'>
+                    {tickerValidation.isValid ? (
+                      <span className='text-green-600'>✓ Valid ticker</span>
+                    ) : tickerValidation.error ? (
+                      <span className='text-red-600'>
+                        ✗ {tickerValidation.error}
+                      </span>
+                    ) : (
+                      <span className='text-muted-foreground'>
+                        Checking ticker...
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className='space-y-2'>
@@ -428,56 +453,58 @@ export default function InvestmentForm({
               </div>
             </div>
 
-            {selectedETF && (
+            {tickerValidation.isValid && tickerValidation.stockInfo && (
               <div className='p-3 bg-muted/30 rounded-lg'>
-                {(() => {
-                  const etf = popularETFs.find(e => e.ticker === selectedETF);
-                  return (
-                    etf && (
-                      <div className='space-y-2'>
-                        <div className='flex items-center justify-between'>
-                          <span className='font-medium text-foreground'>
-                            {etf.name}
-                          </span>
-                          <Badge
-                            variant='secondary'
-                            className={`${riskLevels[etf.risk as keyof typeof riskLevels].bg} ${riskLevels[etf.risk as keyof typeof riskLevels].color}`}
-                          >
-                            {
-                              riskLevels[etf.risk as keyof typeof riskLevels]
-                                .label
-                            }
-                          </Badge>
-                        </div>
-                        <div className='grid grid-cols-2 gap-4 text-sm'>
-                          <div>
-                            <span className='text-muted-foreground'>
-                              Category:
-                            </span>
-                            <span className='ml-1 text-foreground'>
-                              {etf.category}
-                            </span>
-                          </div>
-                          <div>
-                            <span className='text-muted-foreground'>
-                              Expense Ratio:
-                            </span>
-                            <span className='ml-1 text-foreground'>
-                              {etf.expense}%
-                            </span>
-                          </div>
-                        </div>
+                <div className='space-y-2'>
+                  <div className='flex items-center justify-between'>
+                    <span className='font-medium text-foreground'>
+                      {tickerValidation.stockInfo.name}
+                    </span>
+                    <Badge
+                      variant='secondary'
+                      className='bg-accent/10 text-accent'
+                    >
+                      Individual Stock
+                    </Badge>
+                  </div>
+                  <div className='grid grid-cols-2 gap-4 text-sm'>
+                    <div>
+                      <span className='text-muted-foreground'>
+                        Current Price:
+                      </span>
+                      <span className='ml-1 text-foreground font-medium'>
+                        ${tickerValidation.stockInfo.price.toFixed(2)}
+                      </span>
+                    </div>
+                    {tickerValidation.stockInfo.marketCap && (
+                      <div>
+                        <span className='text-muted-foreground'>
+                          Market Cap:
+                        </span>
+                        <span className='ml-1 text-foreground'>
+                          {tickerValidation.stockInfo.marketCap}
+                        </span>
                       </div>
-                    )
-                  );
-                })()}
+                    )}
+                    {tickerValidation.stockInfo.sector && (
+                      <div className='col-span-2'>
+                        <span className='text-muted-foreground'>Sector:</span>
+                        <span className='ml-1 text-foreground'>
+                          {tickerValidation.stockInfo.sector}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
             <Button
               onClick={addInvestment}
               disabled={
-                !selectedETF || newAmount <= 0 || newAmount > remainingBudget
+                !tickerValidation.isValid ||
+                newAmount <= 0 ||
+                newAmount > remainingBudget
               }
               className='w-full bg-primary hover:bg-primary/90'
             >

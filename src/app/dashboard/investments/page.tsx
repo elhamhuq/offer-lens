@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -18,11 +18,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Calculator, Target, DollarSign, Save } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calculator,
+  Target,
+  DollarSign,
+  Save,
+  ChevronDown,
+} from 'lucide-react';
 import Link from 'next/link';
 import InvestmentForm from '@/components/InvestmentForm';
 import FinancialChart from '@/components/FinancialChart';
+import PortfolioSimulation from '@/components/PortfolioSimulation';
 import type { Investment } from '@/types';
+import { useScenario } from '@/hooks/useScenario';
+import { SimpleDropdown, DropdownItem } from '@/components/ui/simple-dropdown';
 
 export default function InvestmentsPage() {
   const [monthlyIncome, setMonthlyIncome] = useState(12500); // $150k annual
@@ -30,6 +40,32 @@ export default function InvestmentsPage() {
   const [investmentGoal, setInvestmentGoal] = useState('retirement');
   const [timeHorizon, setTimeHorizon] = useState('30');
   const [investments, setInvestments] = useState<Investment[]>([]);
+
+  // Get scenarios from the hook
+  const { scenarios, currentScenario, setCurrentScenario } = useScenario();
+
+  // Load scenario data when currentScenario changes
+  React.useEffect(() => {
+    if (currentScenario) {
+      // Load job offer data
+      if (currentScenario.jobOffer) {
+        const netIncome = currentScenario.jobOffer.salary / 12; // Monthly net income
+        setMonthlyIncome(netIncome);
+
+        // Estimate monthly expenses (you might want to make this configurable)
+        const estimatedExpenses = netIncome * 0.6; // Assume 60% expenses
+        setMonthlyExpenses(estimatedExpenses);
+      }
+
+      // Load investment data
+      if (
+        currentScenario.investments &&
+        currentScenario.investments.length > 0
+      ) {
+        setInvestments(currentScenario.investments);
+      }
+    }
+  }, [currentScenario]);
 
   const availableBudget = monthlyIncome - monthlyExpenses;
   const currentInvestments = investments.reduce(
@@ -61,13 +97,55 @@ export default function InvestmentsPage() {
             long-term financial goals.
           </p>
         </div>
-        <Button
-          onClick={savePortfolio}
-          className='bg-primary hover:bg-primary/90'
-        >
-          <Save className='w-4 h-4 mr-2' />
-          Save Portfolio
-        </Button>
+        <div className='flex items-center space-x-4'>
+          {/* Scenarios Dropdown */}
+          {scenarios.length > 0 && (
+            <div className='flex items-center space-x-2'>
+              <span className='text-sm text-muted-foreground'>
+                Load Scenario:
+              </span>
+              <SimpleDropdown
+                trigger={
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    className='min-w-[200px] justify-between'
+                  >
+                    {currentScenario ? currentScenario.name : 'Select Scenario'}
+                    <ChevronDown className='w-4 h-4 ml-2' />
+                  </Button>
+                }
+              >
+                {scenarios.map(scenario => (
+                  <DropdownItem
+                    key={scenario.id}
+                    onClick={() => setCurrentScenario(scenario)}
+                    className={
+                      currentScenario?.id === scenario.id
+                        ? 'bg-primary/10 text-primary'
+                        : ''
+                    }
+                  >
+                    <div className='flex flex-col'>
+                      <span className='font-medium'>{scenario.name}</span>
+                      <span className='text-xs text-muted-foreground'>
+                        {scenario.jobOffer?.company} - $
+                        {scenario.jobOffer?.salary?.toLocaleString()}
+                      </span>
+                    </div>
+                  </DropdownItem>
+                ))}
+              </SimpleDropdown>
+            </div>
+          )}
+          <Button
+            onClick={savePortfolio}
+            className='bg-primary hover:bg-primary/90'
+          >
+            <Save className='w-4 h-4 mr-2' />
+            Save Portfolio
+          </Button>
+        </div>
       </div>
 
       {/* Content Area */}
@@ -349,13 +427,19 @@ export default function InvestmentsPage() {
           </div>
         </div>
 
+        {/* Portfolio Simulation */}
+        {investments.length > 0 && (
+          <div className='mt-8'>
+            <PortfolioSimulation investments={investments} />
+          </div>
+        )}
+
         {/* Financial Projection Chart */}
         {currentInvestments > 0 && (
           <div className='mt-8'>
             <FinancialChart
               title='Investment Projection'
               description={`Your portfolio growth over ${timeHorizon} years`}
-              timeHorizon={Number.parseInt(timeHorizon)}
             />
           </div>
         )}

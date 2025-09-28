@@ -14,6 +14,8 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf .next out dist",
     "check-env": "node -e \"console.log('Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)\"",
+    "monte-carlo": "tsx scripts/monte-carlo-sim.ts",
+    "portfolio-monte-carlo": "tsx scripts/portfolio-monte-carlo.ts",
     "postinstall": "echo '✅ Dependencies installed successfully!'"
   },
   "dependencies": {
@@ -74,7 +76,8 @@
     "eslint-config-next": "^15.5.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6"
   },
   "keywords": [
     "nextjs",
